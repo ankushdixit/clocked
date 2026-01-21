@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial project setup with Session-Driven Development
+- Session Index Parser & SQLite Cache for Claude Code session data
+  - SQLite database (`~/.clocked/cache.db`) with WAL mode for performance
+  - Session parser to discover and parse `sessions-index.json` from `~/.claude/projects/`
+  - URL path decoder for Claude Code's encoded directory names
+  - IPC handlers: `projects:getAll`, `projects:getByPath`, `sessions:getAll`, `sessions:getByProject`, `sessions:getByDateRange`, `data:sync`, `data:status`
+  - Refine data provider (`ipc-data-provider.ts`) for frontend integration
+  - Comprehensive test suite (226 tests) with 90%+ coverage
 - Electron desktop application foundation with secure IPC communication
   - Main process (`electron/main.ts`) with BrowserWindow (1200x800, contextIsolation enabled)
   - Preload script (`electron/preload.ts`) with contextBridge API
