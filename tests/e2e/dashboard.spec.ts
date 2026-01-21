@@ -7,29 +7,29 @@ import AxeBuilder from "@axe-core/playwright";
  */
 
 test.describe("Dashboard Page", () => {
-  test("should display welcome heading", async ({ page }) => {
+  test("should display main heading", async ({ page }) => {
     await page.goto("/");
 
-    // Check that welcome heading is visible
-    await expect(page.getByRole("heading", { name: "Welcome to Refine Dashboard" })).toBeVisible();
+    // Check that main heading is visible
+    await expect(page.getByRole("heading", { name: "Clocked is ready" })).toBeVisible();
   });
 
-  test("should display getting started guidance", async ({ page }) => {
+  test("should display electron connection card", async ({ page }) => {
     await page.goto("/");
 
-    // Check that getting started card is visible
-    await expect(page.getByText("Getting Started")).toBeVisible();
-    await expect(
-      page.getByText("Read ARCHITECTURE.md to understand the dashboard patterns.")
-    ).toBeVisible();
+    // Check that electron connection card is visible
+    await expect(page.getByText("Electron Connection")).toBeVisible();
+    // In browser mode, should show browser mode message
+    await expect(page.getByText("Running in browser mode")).toBeVisible();
   });
 
-  test("should display next steps guidance", async ({ page }) => {
+  test("should display health status card", async ({ page }) => {
     await page.goto("/");
 
-    // Check that next steps card is visible
-    await expect(page.getByText("Next Steps")).toBeVisible();
-    await expect(page.getByText("1. Set up your backend API connection")).toBeVisible();
+    // Check that health status card is visible
+    await expect(page.getByText("Health Status")).toBeVisible();
+    // In browser mode, health check should be unavailable
+    await expect(page.getByText("Health check unavailable")).toBeVisible();
   });
 
   test("should have accessible search functionality", async ({ page }) => {
@@ -49,8 +49,10 @@ test.describe("Dashboard Page", () => {
     await page.goto("/");
 
     // Run accessibility scan
-    // Cast page to any to avoid type conflict between @playwright/test and @axe-core/playwright
-    const accessibilityScanResults = await new AxeBuilder({ page } as any)
+    // Cast through unknown to satisfy type compatibility between @playwright/test and @axe-core/playwright
+    const accessibilityScanResults = await new AxeBuilder({
+      page,
+    } as unknown as ConstructorParameters<typeof AxeBuilder>[0])
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();
 
@@ -64,7 +66,7 @@ test.describe("Dashboard Page", () => {
     await page.goto("/");
 
     // Check that content is visible on mobile
-    await expect(page.getByRole("heading", { name: "Welcome to Refine Dashboard" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Clocked is ready" })).toBeVisible();
 
     // Sidebar should be hidden on mobile
     const sidebar = page.locator("aside");

@@ -4,6 +4,7 @@
   "description": "A Internal Dashboard (Refine) project",
   "private": true,
   "type": "module",
+  "main": "dist-electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -33,7 +34,11 @@
     "audit": "npm audit --audit-level=moderate",
     "analyze": "ANALYZE=true npm run build",
     "lighthouse": "bash scripts/lighthouse.sh",
-    "load-test": "k6 run k6/load-test.js"
+    "load-test": "k6 run k6/load-test.js",
+    "electron:compile": "tsc -p electron/tsconfig.json",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development npm run electron:compile && cross-env NODE_ENV=development electron .\"",
+    "electron:build": "cross-env ELECTRON=true npm run build && npm run electron:compile && electron-builder",
+    "electron:start": "npm run electron:compile && electron ."
   },
   "dependencies": {
     "@hookform/resolvers": "5.2.2",
@@ -74,7 +79,11 @@
     "@types/react-dom": "19.2.2",
     "@typescript-eslint/eslint-plugin": "8.46.3",
     "@typescript-eslint/parser": "8.46.3",
+    "concurrently": "9.2.1",
+    "cross-env": "10.1.0",
     "dotenv-cli": "11.0.0",
+    "electron": "40.0.0",
+    "electron-builder": "26.4.0",
     "eslint": "9.39.1",
     "eslint-config-next": "16.1.0",
     "eslint-plugin-jest-dom": "5.5.0",
@@ -92,12 +101,15 @@
     "ts-node": "10.9.2",
     "ts-prune": "0.10.3",
     "type-coverage": "2.29.7",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "wait-on": "9.0.3"
   },
   "overrides": {
     "glob": "^10.4.5",
     "rimraf": "^5.0.10",
     "inflight": "npm:@nothing/inflight@^1.0.0",
-    "tmp": "0.2.5"
+    "tmp": "0.2.5",
+    "diff": "^7.0.0",
+    "tar": "^7.5.6"
   }
 }

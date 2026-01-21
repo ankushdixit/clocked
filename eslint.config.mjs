@@ -28,6 +28,8 @@ export default [
       "@typescript-eslint": tseslint,
     },
     rules: {
+      // Disable base no-unused-vars in favor of TypeScript version
+      "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
       "@typescript-eslint/no-explicit-any": "warn",
       // Complexity rules (tier-3+)
@@ -103,6 +105,25 @@ export default [
     },
   },
   {
+    // Type definition files
+    files: ["**/*.d.ts"],
+    rules: {
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+    },
+  },
+  {
+    // Electron files use different patterns
+    files: ["electron/**/*.ts"],
+    rules: {
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
+  {
     ignores: [
       // Dependencies
       "node_modules/**",
@@ -110,6 +131,7 @@ export default [
       ".next/**",
       "out/**",
       "dist/**",
+      "dist-electron/**",
       "build/**",
       // Reports and coverage
       "report/**",
