@@ -6,8 +6,21 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
   enabled: process.env.ANALYZE === "true",
 });
 
+const isElectron = process.env.ELECTRON === "true";
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+
+  // Enable static export for Electron production builds
+  ...(isElectron && {
+    output: "export",
+    // Asset prefix for Electron file:// protocol
+    assetPrefix: "./",
+    // Disable image optimization for static export
+    images: {
+      unoptimized: true,
+    },
+  }),
 
   // Security headers
   async headers() {

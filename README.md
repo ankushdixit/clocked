@@ -4,6 +4,7 @@ A Internal Dashboard (Refine) project built with Session-Driven Development.
 
 ## Tech Stack
 
+- **Desktop**: Electron 40.0.0
 - **Framework**: Refine (latest) + Next.js 16.0.7
 - **Language**: TypeScript 5.9.3
 - **Ui**: React 19.2.1 + shadcn/ui components
@@ -47,11 +48,57 @@ A Internal Dashboard (Refine) project built with Session-Driven Development.
 # Install dependencies
 npm install
 
-# Run development server
+# Run development server (browser)
 npm run dev
+
+# Run development server (Electron desktop app)
+npm run electron:dev
 ```
 
-Visit http://localhost:3000
+Visit http://localhost:3000 (browser mode) or the Electron window will open automatically.
+
+## Electron Development
+
+Clocked runs as a desktop application using Electron with Next.js as the renderer.
+
+### Development Mode
+
+```bash
+# Start the Electron app with hot reload
+npm run electron:dev
+```
+
+This starts:
+
+1. Next.js dev server on http://localhost:3000
+2. Waits for server to be ready
+3. Launches Electron window with DevTools
+
+### Production Build
+
+```bash
+# Build for production (creates distributable)
+npm run electron:build
+```
+
+This:
+
+1. Builds Next.js with static export (`output: 'export'`)
+2. Compiles Electron TypeScript
+3. Creates distributable app via electron-builder
+
+### Architecture
+
+- `electron/main.ts` - Main process (window management, IPC handlers)
+- `electron/preload.ts` - Preload script (secure contextBridge API)
+- `types/electron.d.ts` - Type definitions for renderer
+- `lib/electron/ipc.ts` - Type-safe IPC client
+
+Security:
+
+- `contextIsolation: true` - Renderer cannot access Node.js
+- `nodeIntegration: false` - No direct Node.js in renderer
+- All IPC through contextBridge
 
 ### Environment Setup
 
