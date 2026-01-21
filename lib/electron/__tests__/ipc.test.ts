@@ -6,6 +6,22 @@ const mockElectron = {
   getHealth: jest.fn(),
   invoke: jest.fn(),
   on: jest.fn(),
+  // New API properties added for session/project data
+  projects: {
+    getAll: jest.fn(),
+    getByPath: jest.fn(),
+    getCount: jest.fn(),
+  },
+  sessions: {
+    getAll: jest.fn(),
+    getByProject: jest.fn(),
+    getByDateRange: jest.fn(),
+    getCount: jest.fn(),
+  },
+  data: {
+    sync: jest.fn(),
+    status: jest.fn(),
+  },
 };
 
 describe("Electron IPC client", () => {
