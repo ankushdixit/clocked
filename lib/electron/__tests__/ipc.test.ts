@@ -1,6 +1,3 @@
-/**
- * @jest-environment jsdom
- */
 import { isElectron, getAppVersion, getHealth, invoke, on } from "../ipc";
 
 // Mock window.electron for tests

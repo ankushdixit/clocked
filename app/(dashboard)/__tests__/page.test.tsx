@@ -1,6 +1,3 @@
-/**
- * @jest-environment jsdom
- */
 import { render, screen, waitFor } from "@testing-library/react";
 import DashboardPage from "../page";
 
