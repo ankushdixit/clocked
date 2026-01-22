@@ -1,0 +1,8 @@
+{
+  "exceptions": [
+    "https://github.com/advisories/GHSA-xxjr-mmjv-4gpg"
+  ],
+  "notes": {
+    "GHSA-xxjr-mmjv-4gpg": "lodash/lodash-es prototype pollution in _.unset and _.omit - no fix available, transitive dependency from electron-builder and @refinedev packages. Functions not used directly in our code."
+  }
+}

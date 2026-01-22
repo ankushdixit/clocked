@@ -387,13 +387,15 @@ describe("ProjectsList", () => {
         id: "group-1",
         name: "Work Projects",
         color: "#3b82f6",
-        projectPaths: [],
+        createdAt: "2024-01-01T00:00:00Z",
+        sortOrder: 0,
       },
       {
         id: "group-2",
         name: "Personal Projects",
         color: "#22c55e",
-        projectPaths: [],
+        createdAt: "2024-01-01T00:00:00Z",
+        sortOrder: 1,
       },
     ];
 
@@ -555,7 +557,8 @@ describe("ProjectsList", () => {
         id: "active-group",
         name: "Active Development",
         color: "#f59e0b",
-        projectPaths: [],
+        createdAt: "2024-01-01T00:00:00Z",
+        sortOrder: 0,
       },
     ];
 
@@ -665,7 +668,8 @@ describe("ProjectsList", () => {
         id: "empty-group",
         name: "Empty Group",
         color: "#6366f1",
-        projectPaths: [],
+        createdAt: "2024-01-01T00:00:00Z",
+        sortOrder: 0,
       },
     ];
 
@@ -704,7 +708,8 @@ describe("ProjectsList", () => {
         id: "test-group",
         name: "Test Group",
         color: "#ec4899",
-        projectPaths: [],
+        createdAt: "2024-01-01T00:00:00Z",
+        sortOrder: 0,
       },
     ];
 
@@ -864,7 +869,8 @@ describe("ProjectsList", () => {
           id: "valid-group",
           name: "Valid Group",
           color: "#10b981",
-          projectPaths: [],
+          createdAt: "2024-01-01T00:00:00Z",
+          sortOrder: 0,
         },
       ];
 

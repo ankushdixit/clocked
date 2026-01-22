@@ -5,6 +5,7 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ProjectsPage from "../page";
 import { useList, useUpdate, useInvalidate } from "@refinedev/core";
+import type { Project, ProjectGroup } from "@/types/electron";
 
 // Mock @refinedev/core
 jest.mock("@refinedev/core", () => ({
@@ -215,7 +216,7 @@ describe("ProjectsPage handlers", () => {
   let mockMutate: jest.Mock;
   let mockInvalidate: jest.Mock;
 
-  const mockProject = {
+  const mockProject: Project = {
     path: "/Users/test/my-project",
     name: "my-project",
     firstActivity: "2024-01-01T10:00:00Z",
@@ -228,9 +229,21 @@ describe("ProjectsPage handlers", () => {
     isDefault: false,
   };
 
-  const mockGroups = [
-    { id: "group-1", name: "Work Projects", color: "#ff0000" },
-    { id: "group-2", name: "Personal", color: "#00ff00" },
+  const mockGroups: ProjectGroup[] = [
+    {
+      id: "group-1",
+      name: "Work Projects",
+      color: "#ff0000",
+      createdAt: "2024-01-01T00:00:00Z",
+      sortOrder: 0,
+    },
+    {
+      id: "group-2",
+      name: "Personal",
+      color: "#00ff00",
+      createdAt: "2024-01-01T00:00:00Z",
+      sortOrder: 1,
+    },
   ];
 
   beforeEach(() => {
@@ -677,7 +690,7 @@ describe("ProjectsPage handler user interactions", () => {
   let mockMutate: jest.Mock;
   let mockInvalidate: jest.Mock;
 
-  const mockProject = {
+  const mockProject: Project = {
     path: "/Users/test/my-project",
     name: "my-project",
     firstActivity: "2024-01-01T10:00:00Z",
@@ -690,9 +703,21 @@ describe("ProjectsPage handler user interactions", () => {
     isDefault: false,
   };
 
-  const mockGroups = [
-    { id: "group-1", name: "Work Projects", color: "#ff0000" },
-    { id: "group-2", name: "Personal", color: "#00ff00" },
+  const mockGroups: ProjectGroup[] = [
+    {
+      id: "group-1",
+      name: "Work Projects",
+      color: "#ff0000",
+      createdAt: "2024-01-01T00:00:00Z",
+      sortOrder: 0,
+    },
+    {
+      id: "group-2",
+      name: "Personal",
+      color: "#00ff00",
+      createdAt: "2024-01-01T00:00:00Z",
+      sortOrder: 1,
+    },
   ];
 
   beforeEach(() => {

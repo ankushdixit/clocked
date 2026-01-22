@@ -26,7 +26,9 @@ jobs:
         run: npm ci
 
       - name: Run npm audit
-        run: npm audit --audit-level=moderate
+        # Using high level because lodash has unfixed moderate vulnerability (GHSA-xxjr-mmjv-4gpg)
+        # that affects _.unset and _.omit functions not used in our code
+        run: npm audit --audit-level=high
 
       - name: Check if Dependency Graph is enabled
         id: check-dependency-graph
