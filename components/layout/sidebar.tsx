@@ -1,26 +1,33 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, FolderKanban, Settings } from "lucide-react";
 
 /**
  * Dashboard sidebar navigation
  *
+ * Features:
+ * - Logo branding below traffic lights
+ * - Drag region for window movement (frameless window)
+ * - Traffic lights area separate from logo on macOS
+ *
  * Add navigation items as you build your resources.
  * See ARCHITECTURE.md for patterns on adding resources.
- *
- * Example of adding a resource:
- * {
- *   label: "Users",
- *   icon: Users,
- *   href: "/users",
- *   active: pathname === "/users",
- * }
  */
 export function Sidebar() {
   const pathname = usePathname();
+  const [isMac, setIsMac] = useState(false);
+
+  useEffect(() => {
+    // Check platform on mount (client-side only)
+    if (typeof window !== "undefined" && window.electron?.platform) {
+      setIsMac(window.electron.platform === "darwin");
+    }
+  }, []);
 
   const routes = [
     {
@@ -45,12 +52,21 @@ export function Sidebar() {
 
   return (
     <aside className="hidden md:flex w-64 flex-col border-r bg-background">
-      <div className="flex h-14 items-center border-b px-4">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
-          <LayoutDashboard className="h-6 w-6" />
-          <span>Dashboard</span>
+      {/* Traffic lights area - only visible space on macOS */}
+      {isMac && <div className="h-8 app-drag-region flex-shrink-0" />}
+
+      {/* Logo area */}
+      <div
+        className={cn(
+          "flex items-center border-b app-drag-region px-4 pb-4",
+          !isMac && "pt-3" // Extra top padding on Windows/Linux since no traffic light area
+        )}
+      >
+        <Link href="/" className="app-no-drag">
+          <Image src="/logo-lockup.svg" alt="Clocked" width={160} height={32} priority />
         </Link>
       </div>
+
       <nav className="flex-1 space-y-1 p-4" aria-label="Main navigation">
         {routes.map((route) => (
           <Link

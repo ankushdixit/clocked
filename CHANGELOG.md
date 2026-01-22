@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Frameless window UI shell redesign for native macOS/Windows experience:
+  - **macOS**: Hidden title bar with native traffic lights (close/minimize/maximize)
+  - **Windows/Linux**: Custom window controls component (minimize/maximize/close buttons)
+  - **Drag regions**: Sidebar header enables window dragging
+  - **Logo branding**: Updated sidebar with Clocked logo below traffic lights
+- Window control IPC handlers: `window:minimize`, `window:maximize`, `window:close`, `window:isMaximized`
+- Platform detection via `window.electron.platform` for OS-specific styling
+- Updated logo-lockup.svg with new clock icon design
+
 - Project management features for organizing Claude Code projects:
   - **Hide/Show Projects**: Mark projects as hidden with toggle to show/hide in list
   - **Project Groups**: Create named groups with colors to organize related projects

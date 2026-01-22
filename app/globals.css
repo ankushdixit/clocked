@@ -70,3 +70,12 @@
     color: var(--color-foreground);
   }
 }
+
+/* Electron frameless window drag regions */
+.app-drag-region {
+  -webkit-app-region: drag;
+}
+
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
