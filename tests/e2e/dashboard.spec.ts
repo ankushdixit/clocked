@@ -11,7 +11,7 @@ test.describe("Dashboard Page", () => {
     await page.goto("/");
 
     // Check that main heading is visible
-    await expect(page.getByRole("heading", { name: "Clocked is ready" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Clocked" })).toBeVisible();
   });
 
   test("should display electron connection card", async ({ page }) => {
@@ -66,7 +66,7 @@ test.describe("Dashboard Page", () => {
     await page.goto("/");
 
     // Check that content is visible on mobile
-    await expect(page.getByRole("heading", { name: "Clocked is ready" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Clocked" })).toBeVisible();
 
     // Sidebar should be hidden on mobile
     const sidebar = page.locator("aside");

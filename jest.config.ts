@@ -28,6 +28,8 @@ const config: Config = {
   // Allow testing of app, components, lib directories
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
+    // Map .js imports to .ts files for ESM compatibility in Jest
+    "^(\\.{1,2}/.*)\\.js$": "$1",
   },
 
   // ESM transformation for dependencies that need it

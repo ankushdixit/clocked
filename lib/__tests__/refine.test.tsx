@@ -7,82 +7,92 @@ import {
 
 describe("refineDataProvider", () => {
   describe("getList", () => {
-    it("throws helpful error with resource name", async () => {
+    it("throws error for unsupported resource", async () => {
       await expect(
         refineDataProvider.getList({
-          resource: "users",
+          resource: "unsupported-resource",
         })
-      ).rejects.toThrow('Data provider not configured. Attempted getList for "users".');
+      ).rejects.toThrow('Resource "unsupported-resource" not supported');
     });
 
-    it("includes setup instructions in error", async () => {
-      await expect(
-        refineDataProvider.getList({
-          resource: "users",
-        })
-      ).rejects.toThrow("See lib/refine.tsx and ARCHITECTURE.md for setup instructions.");
+    it("returns empty array for projects when not in Electron", async () => {
+      const result = await refineDataProvider.getList({
+        resource: "projects",
+      });
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
     });
   });
 
   describe("getOne", () => {
-    it("throws helpful error with resource and id", async () => {
+    it("throws error for unsupported resource", async () => {
       await expect(
         refineDataProvider.getOne({
-          resource: "users",
-          id: 1,
+          resource: "unsupported-resource",
+          id: "test",
           meta: {},
         })
-      ).rejects.toThrow('Attempted getOne for "users" with id "1"');
+      ).rejects.toThrow('Resource "unsupported-resource" not supported');
     });
   });
 
   describe("create", () => {
-    it("throws helpful error", async () => {
+    it("throws error for unsupported resource", async () => {
       await expect(
         refineDataProvider.create({
-          resource: "users",
+          resource: "projects",
           variables: { name: "Test" },
           meta: {},
         })
-      ).rejects.toThrow('Attempted create for "users"');
+      ).rejects.toThrow('Create operation not supported for resource "projects"');
     });
   });
 
   describe("update", () => {
-    it("throws helpful error with resource and id", async () => {
+    it("throws error for unsupported resource", async () => {
       await expect(
         refineDataProvider.update({
-          resource: "users",
-          id: 1,
+          resource: "sessions",
+          id: "test",
           variables: { name: "Updated" },
           meta: {},
         })
-      ).rejects.toThrow('Attempted update for "users" with id "1"');
+      ).rejects.toThrow('Update operation not supported for resource "sessions"');
     });
   });
 
   describe("deleteOne", () => {
-    it("throws helpful error with resource and id", async () => {
+    it("throws error for unsupported resource", async () => {
       await expect(
         refineDataProvider.deleteOne({
-          resource: "users",
-          id: 1,
+          resource: "projects",
+          id: "test",
           meta: {},
         })
-      ).rejects.toThrow('Attempted deleteOne for "users" with id "1"');
+      ).rejects.toThrow('Delete operation not supported for resource "projects"');
     });
   });
 
   describe("getApiUrl", () => {
-    it("returns empty string", () => {
-      expect(refineDataProvider.getApiUrl()).toBe("");
+    it("returns ipc://electron", () => {
+      expect(refineDataProvider.getApiUrl()).toBe("ipc://electron");
     });
   });
 });
 
 describe("refineResources", () => {
-  it("starts as an empty array", () => {
-    expect(refineResources).toEqual([]);
+  it("includes projects resource", () => {
+    const projectResource = refineResources.find((r) => r.name === "projects");
+    expect(projectResource).toBeDefined();
+    expect(projectResource?.list).toBe("/projects");
+    expect(projectResource?.show).toBe("/projects/:id");
+  });
+
+  it("includes sessions resource", () => {
+    const sessionResource = refineResources.find((r) => r.name === "sessions");
+    expect(sessionResource).toBeDefined();
+    expect(sessionResource?.list).toBe("/sessions");
+    expect(sessionResource?.show).toBe("/sessions/:id");
   });
 
   it("is an array", () => {
@@ -95,7 +105,8 @@ describe("refineOptions", () => {
     expect(refineOptions.syncWithLocation).toBe(true);
     expect(refineOptions.warnWhenUnsavedChanges).toBe(true);
     expect(refineOptions.useNewQueryKeys).toBe(true);
-    expect(refineOptions.projectId).toBe("refine-dashboard");
+    expect(refineOptions.projectId).toBe("clocked");
+    expect(refineOptions.disableTelemetry).toBe(true);
   });
 });
 

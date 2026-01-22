@@ -14,7 +14,9 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "type-check": "tsc --noEmit",
-    "test": "jest",
+    "test": "npm run rebuild:node --silent && jest",
+    "rebuild:node": "npm rebuild better-sqlite3 --silent",
+    "rebuild:electron": "cd node_modules/better-sqlite3 && npx node-gyp rebuild --runtime=electron --target=40.0.0 --arch=arm64 --dist-url=https://electronjs.org/headers",
     "test:unit": "jest --testMatch='**/tests/unit/**/*.test.{ts,tsx}'",
     "test:integration": "jest --testMatch='**/tests/integration/**/*.test.{ts,tsx}'",
     "test:e2e": "playwright test",
@@ -35,13 +37,18 @@
     "analyze": "ANALYZE=true npm run build",
     "lighthouse": "bash scripts/lighthouse.sh",
     "load-test": "k6 run k6/load-test.js",
-    "electron:compile": "tsc -p electron/tsconfig.json",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development npm run electron:compile && cross-env NODE_ENV=development electron .\"",
+    "electron:compile": "tsc -p electron/tsconfig.json && tsc -p electron/tsconfig.preload.json",
+    "electron:dev": "npm run rebuild:electron --silent && concurrently \"npm run dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development npm run electron:compile && cross-env NODE_ENV=development electron .\"",
     "electron:build": "cross-env ELECTRON=true npm run build && npm run electron:compile && electron-builder",
     "electron:start": "npm run electron:compile && electron ."
   },
   "dependencies": {
     "@hookform/resolvers": "5.2.2",
+    "@radix-ui/react-dialog": "1.1.15",
+    "@radix-ui/react-dropdown-menu": "2.1.16",
+    "@radix-ui/react-label": "2.1.8",
+    "@radix-ui/react-slot": "1.2.4",
+    "@radix-ui/react-switch": "1.2.6",
     "@refinedev/cli": "2.16.50",
     "@refinedev/core": "5.0.5",
     "@refinedev/nextjs-router": "7.0.4",
@@ -112,7 +119,7 @@
     "rimraf": "^5.0.10",
     "inflight": "npm:@nothing/inflight@^1.0.0",
     "tmp": "0.2.5",
-    "diff": "^7.0.0",
+    "diff": "^8.0.0",
     "tar": "^7.5.6"
   }
 }

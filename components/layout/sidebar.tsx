@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Settings } from "lucide-react";
 
 /**
  * Dashboard sidebar navigation
@@ -29,10 +29,18 @@ export function Sidebar() {
       href: "/",
       active: pathname === "/",
     },
-    // Add your resource routes here
-    // Example:
-    // { label: "Users", icon: Users, href: "/users", active: pathname === "/users" },
-    // { label: "Products", icon: Package, href: "/products", active: pathname === "/products" },
+    {
+      label: "Projects",
+      icon: FolderKanban,
+      href: "/projects",
+      active: pathname === "/projects" || pathname.startsWith("/projects/"),
+    },
+    {
+      label: "Settings",
+      icon: Settings,
+      href: "/settings",
+      active: pathname === "/settings",
+    },
   ];
 
   return (

@@ -1,5 +1,5 @@
 import routerProvider from "@refinedev/nextjs-router";
-import type { DataProvider } from "@refinedev/core";
+import { ipcDataProvider } from "@/src/lib/data-provider/ipc-data-provider";
 
 /**
  * Refine configuration
@@ -9,70 +9,16 @@ import type { DataProvider } from "@refinedev/core";
 /**
  * Data Provider Configuration
  *
- * You MUST implement a data provider to connect Refine to your backend.
- * See ARCHITECTURE.md for detailed examples.
+ * This app uses a custom IPC data provider that communicates with the Electron
+ * main process to fetch session and project data from the SQLite database.
  *
- * Options:
- *
- * 1. REST API (@refinedev/simple-rest):
- *    npm install @refinedev/simple-rest
- *    import dataProvider from "@refinedev/simple-rest";
- *    export const refineDataProvider = dataProvider("https://api.example.com");
- *
- * 2. GraphQL (@refinedev/graphql):
- *    npm install @refinedev/graphql graphql-request
- *    import dataProvider, { GraphQLClient } from "@refinedev/graphql";
- *    const client = new GraphQLClient("https://api.example.com/graphql");
- *    export const refineDataProvider = dataProvider(client);
- *
- * 3. Supabase (@refinedev/supabase):
- *    npm install @refinedev/supabase @supabase/supabase-js
- *    import { dataProvider } from "@refinedev/supabase";
- *    import { supabaseClient } from "./supabase";
- *    export const refineDataProvider = dataProvider(supabaseClient);
- *
- * 4. Custom: Implement the DataProvider interface
+ * Supported resources:
+ * - "projects": List and retrieve project data
+ * - "sessions": List and retrieve session data with filtering
  *
  * Documentation: https://refine.dev/docs/data/data-provider/
  */
-
-// Placeholder data provider - Replace with your backend implementation
-// This throws helpful errors to guide implementation
-const placeholderDataProvider: DataProvider = {
-  getList: async ({ resource }) => {
-    throw new Error(
-      `Data provider not configured. Attempted getList for "${resource}". ` +
-        `See lib/refine.tsx and ARCHITECTURE.md for setup instructions.`
-    );
-  },
-  getOne: async ({ resource, id }) => {
-    throw new Error(
-      `Data provider not configured. Attempted getOne for "${resource}" with id "${id}". ` +
-        `See lib/refine.tsx and ARCHITECTURE.md for setup instructions.`
-    );
-  },
-  create: async ({ resource }) => {
-    throw new Error(
-      `Data provider not configured. Attempted create for "${resource}". ` +
-        `See lib/refine.tsx and ARCHITECTURE.md for setup instructions.`
-    );
-  },
-  update: async ({ resource, id }) => {
-    throw new Error(
-      `Data provider not configured. Attempted update for "${resource}" with id "${id}". ` +
-        `See lib/refine.tsx and ARCHITECTURE.md for setup instructions.`
-    );
-  },
-  deleteOne: async ({ resource, id }) => {
-    throw new Error(
-      `Data provider not configured. Attempted deleteOne for "${resource}" with id "${id}". ` +
-        `See lib/refine.tsx and ARCHITECTURE.md for setup instructions.`
-    );
-  },
-  getApiUrl: () => "",
-};
-
-export const refineDataProvider = placeholderDataProvider;
+export const refineDataProvider = ipcDataProvider;
 
 /**
  * Router provider configuration
@@ -84,24 +30,6 @@ export const refineRouterProvider = routerProvider;
  * Resource definitions
  *
  * Define your resources here. Each resource maps to a backend endpoint.
- *
- * Example:
- * export const refineResources = [
- *   {
- *     name: "users",
- *     list: "/users",
- *     create: "/users/create",
- *     edit: "/users/edit/:id",
- *     show: "/users/show/:id",
- *     meta: { canDelete: true },
- *   },
- *   {
- *     name: "products",
- *     list: "/products",
- *     create: "/products/create",
- *     edit: "/products/edit/:id",
- *   },
- * ];
  */
 export const refineResources: {
   name: string;
@@ -111,8 +39,16 @@ export const refineResources: {
   show?: string;
   meta?: Record<string, unknown>;
 }[] = [
-  // Add your resources here
-  // See ARCHITECTURE.md for examples
+  {
+    name: "projects",
+    list: "/projects",
+    show: "/projects/:id",
+  },
+  {
+    name: "sessions",
+    list: "/sessions",
+    show: "/sessions/:id",
+  },
 ];
 
 /**
@@ -123,5 +59,6 @@ export const refineOptions = {
   syncWithLocation: true,
   warnWhenUnsavedChanges: true,
   useNewQueryKeys: true,
-  projectId: "refine-dashboard",
+  projectId: "clocked",
+  disableTelemetry: true,
 };

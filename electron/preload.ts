@@ -9,6 +9,15 @@ const ALLOWED_CHANNELS = [
   "projects:getAll",
   "projects:getByPath",
   "projects:getCount",
+  "projects:setHidden",
+  "projects:setGroup",
+  "projects:setDefault",
+  "projects:getDefault",
+  // Project group channels
+  "groups:getAll",
+  "groups:create",
+  "groups:update",
+  "groups:delete",
   // Session channels
   "sessions:getAll",
   "sessions:getByProject",
@@ -26,10 +35,30 @@ contextBridge.exposeInMainWorld("electron", {
 
   // Projects API
   projects: {
-    getAll: (): Promise<unknown> => ipcRenderer.invoke("projects:getAll"),
+    getAll: (options?: { includeHidden?: boolean }): Promise<unknown> =>
+      ipcRenderer.invoke("projects:getAll", { includeHidden: options?.includeHidden }),
     getByPath: (path: string): Promise<unknown> =>
       ipcRenderer.invoke("projects:getByPath", { path }),
     getCount: (): Promise<unknown> => ipcRenderer.invoke("projects:getCount"),
+    setHidden: (path: string, hidden: boolean): Promise<unknown> =>
+      ipcRenderer.invoke("projects:setHidden", { path, hidden }),
+    setGroup: (path: string, groupId: string | null): Promise<unknown> =>
+      ipcRenderer.invoke("projects:setGroup", { path, groupId }),
+    setDefault: (path: string): Promise<unknown> =>
+      ipcRenderer.invoke("projects:setDefault", { path }),
+    getDefault: (): Promise<unknown> => ipcRenderer.invoke("projects:getDefault"),
+  },
+
+  // Project Groups API
+  groups: {
+    getAll: (): Promise<unknown> => ipcRenderer.invoke("groups:getAll"),
+    create: (name: string, color?: string | null): Promise<unknown> =>
+      ipcRenderer.invoke("groups:create", { name, color }),
+    update: (
+      id: string,
+      updates: { name?: string; color?: string | null; sortOrder?: number }
+    ): Promise<unknown> => ipcRenderer.invoke("groups:update", { id, updates }),
+    delete: (id: string): Promise<unknown> => ipcRenderer.invoke("groups:delete", { id }),
   },
 
   // Sessions API

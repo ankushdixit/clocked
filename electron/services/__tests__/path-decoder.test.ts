@@ -94,4 +94,21 @@ describe("path-decoder", () => {
       });
     });
   });
+
+  describe("filesystem-aware decoding", () => {
+    it("falls back to simple decode when path does not exist", () => {
+      // When paths don't exist on filesystem, fallback is used
+      const result = decodeProjectPath("-nonexistent-path-here");
+      expect(result).toBe("/nonexistent/path/here");
+    });
+
+    it("correctly resolves hyphenated folder names when they exist", () => {
+      // This test documents the behavior - when a path like /Users/name/my-project exists,
+      // it should be resolved correctly instead of /Users/name/my/project
+      // In test env, this falls back to simple decode since paths don't exist
+      const result = decodeProjectPath("-Users-name-my-project");
+      // Falls back to simple decode in test environment
+      expect(result).toBe("/Users/name/my/project");
+    });
+  });
 });

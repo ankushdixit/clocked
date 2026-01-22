@@ -12,14 +12,19 @@ import type {
   GetListParams,
   GetOneParams,
   GetManyParams,
+  UpdateParams,
   LogicalFilter,
 } from "@refinedev/core";
 import type {
   Project,
+  ProjectGroup,
   Session,
   ProjectsResponse,
   ProjectResponse,
   SessionsResponse,
+  ProjectGroupsResponse,
+  ProjectGroupResponse,
+  SuccessResponse,
 } from "../../../types/electron";
 
 /**
@@ -121,6 +126,110 @@ async function getSessionsByDateRange(startDate: string, endDate: string): Promi
 }
 
 /**
+ * Get all project groups from IPC
+ */
+async function getProjectGroups(): Promise<ProjectGroup[]> {
+  if (!isElectron()) {
+    return [];
+  }
+  const response = (await window.electron.groups.getAll()) as ProjectGroupsResponse;
+  if (response.error) {
+    throw new Error(response.error);
+  }
+  return response.groups || [];
+}
+
+/**
+ * Update a project via IPC
+ */
+async function updateProject(
+  path: string,
+  data: { isHidden?: boolean; groupId?: string | null; isDefault?: boolean }
+): Promise<Project | null> {
+  if (!isElectron()) {
+    return null;
+  }
+
+  // Handle each field update
+  if (data.isHidden !== undefined) {
+    const response = (await window.electron.projects.setHidden(
+      path,
+      data.isHidden
+    )) as SuccessResponse;
+    if (response.error) {
+      throw new Error(response.error);
+    }
+  }
+
+  if (data.groupId !== undefined) {
+    const response = (await window.electron.projects.setGroup(
+      path,
+      data.groupId
+    )) as SuccessResponse;
+    if (response.error) {
+      throw new Error(response.error);
+    }
+  }
+
+  if (data.isDefault === true) {
+    const response = (await window.electron.projects.setDefault(path)) as SuccessResponse;
+    if (response.error) {
+      throw new Error(response.error);
+    }
+  }
+
+  // Return the updated project
+  return getProjectByPath(path);
+}
+
+/**
+ * Create a project group via IPC
+ */
+async function createGroup(name: string, color?: string | null): Promise<ProjectGroup> {
+  if (!isElectron()) {
+    throw new Error("Not running in Electron environment");
+  }
+  const response = (await window.electron.groups.create(name, color)) as ProjectGroupResponse;
+  if (response.error) {
+    throw new Error(response.error);
+  }
+  if (!response.group) {
+    throw new Error("Failed to create group");
+  }
+  return response.group;
+}
+
+/**
+ * Update a project group via IPC
+ */
+async function updateGroup(
+  id: string,
+  updates: { name?: string; color?: string | null; sortOrder?: number }
+): Promise<ProjectGroup | null> {
+  if (!isElectron()) {
+    return null;
+  }
+  const response = (await window.electron.groups.update(id, updates)) as ProjectGroupResponse;
+  if (response.error) {
+    throw new Error(response.error);
+  }
+  return response.group || null;
+}
+
+/**
+ * Delete a project group via IPC
+ */
+async function deleteGroup(id: string): Promise<void> {
+  if (!isElectron()) {
+    return;
+  }
+  const response = (await window.electron.groups.delete(id)) as SuccessResponse;
+  if (response.error) {
+    throw new Error(response.error);
+  }
+}
+
+/**
  * Apply pagination to an array
  */
 function paginate<T>(items: T[], currentPage: number, pageSize: number): T[] {
@@ -188,6 +297,17 @@ async function getSessionList<TData>(
 }
 
 /**
+ * Get list of project groups
+ */
+async function getGroupList<TData>(): Promise<{ data: TData[]; total: number }> {
+  const groups = await getProjectGroups();
+  return {
+    data: groups as unknown as TData[],
+    total: groups.length,
+  };
+}
+
+/**
  * Create the IPC data provider for Refine
  *
  * Supports two resources:
@@ -210,6 +330,10 @@ export function createIpcDataProvider(): DataProvider {
 
       if (resource === "sessions") {
         return getSessionList<TData>(currentPage, pageSize, filters);
+      }
+
+      if (resource === "groups") {
+        return getGroupList<TData>();
       }
 
       throw new Error(`Resource "${resource}" not supported`);
@@ -239,6 +363,17 @@ export function createIpcDataProvider(): DataProvider {
         };
       }
 
+      if (resource === "groups") {
+        const groups = await getProjectGroups();
+        const group = groups.find((g) => g.id === id);
+        if (!group) {
+          throw new Error(`Group with id "${id}" not found`);
+        }
+        return {
+          data: group as unknown as TData,
+        };
+      }
+
       throw new Error(`Resource "${resource}" not supported`);
     },
 
@@ -259,20 +394,84 @@ export function createIpcDataProvider(): DataProvider {
         };
       }
 
+      if (resource === "groups") {
+        const groups = await getProjectGroups();
+        const filteredGroups = groups.filter((g) => ids.includes(g.id));
+        return {
+          data: filteredGroups as unknown as TData[],
+        };
+      }
+
       throw new Error(`Resource "${resource}" not supported`);
     },
 
-    // Not implemented - read-only data provider
-    create: async () => {
-      throw new Error("Create operation not supported - this is a read-only data provider");
+    create: async <TData extends BaseRecord = BaseRecord, TVariables = object>({
+      resource,
+      variables,
+    }: {
+      resource: string;
+      variables: TVariables;
+    }) => {
+      if (resource === "groups") {
+        const { name, color } = variables as { name: string; color?: string | null };
+        const group = await createGroup(name, color);
+        return {
+          data: group as unknown as TData,
+        };
+      }
+
+      throw new Error(`Create operation not supported for resource "${resource}"`);
     },
 
-    update: async () => {
-      throw new Error("Update operation not supported - this is a read-only data provider");
+    update: async <TData extends BaseRecord = BaseRecord, TVariables = object>({
+      resource,
+      id,
+      variables,
+    }: UpdateParams<TVariables>) => {
+      if (resource === "projects") {
+        const data = variables as {
+          isHidden?: boolean;
+          groupId?: string | null;
+          isDefault?: boolean;
+        };
+        const project = await updateProject(id as string, data);
+        if (!project) {
+          throw new Error(`Project with path "${id}" not found`);
+        }
+        return {
+          data: project as unknown as TData,
+        };
+      }
+
+      if (resource === "groups") {
+        const data = variables as { name?: string; color?: string | null; sortOrder?: number };
+        const group = await updateGroup(id as string, data);
+        if (!group) {
+          throw new Error(`Group with id "${id}" not found`);
+        }
+        return {
+          data: group as unknown as TData,
+        };
+      }
+
+      throw new Error(`Update operation not supported for resource "${resource}"`);
     },
 
-    deleteOne: async () => {
-      throw new Error("Delete operation not supported - this is a read-only data provider");
+    deleteOne: async <TData extends BaseRecord = BaseRecord>({
+      resource,
+      id,
+    }: {
+      resource: string;
+      id: string | number;
+    }) => {
+      if (resource === "groups") {
+        await deleteGroup(id as string);
+        return {
+          data: { id } as unknown as TData,
+        };
+      }
+
+      throw new Error(`Delete operation not supported for resource "${resource}"`);
     },
 
     getApiUrl: () => "ipc://electron",

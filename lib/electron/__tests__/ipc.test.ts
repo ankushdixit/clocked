@@ -11,6 +11,16 @@ const mockElectron = {
     getAll: jest.fn(),
     getByPath: jest.fn(),
     getCount: jest.fn(),
+    setHidden: jest.fn(),
+    setGroup: jest.fn(),
+    setDefault: jest.fn(),
+    getDefault: jest.fn(),
+  },
+  groups: {
+    getAll: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
   },
   sessions: {
     getAll: jest.fn(),

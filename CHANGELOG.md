@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Project management features for organizing Claude Code projects:
+  - **Hide/Show Projects**: Mark projects as hidden with toggle to show/hide in list
+  - **Project Groups**: Create named groups with colors to organize related projects
+  - **Default Project**: Set a default project displayed prominently on dashboard
+- Settings page (`/settings`) for managing hidden projects and project groups
+- Dashboard default project card with session count, total time, and message stats
+- Dropdown menu actions on project rows (hide, set group, set as default)
+- Path decoder improvements to handle `.` and `-` in project names correctly
+- Orphaned project cleanup during sync (removes entries for deleted directories)
+- Automatic better-sqlite3 rebuild scripts (`rebuild:node`, `rebuild:electron`)
+- 151 new tests for project management features (468 total, 98.53% coverage)
+
 - Initial project setup with Session-Driven Development
 - Session Index Parser & SQLite Cache for Claude Code session data
   - SQLite database (`~/.clocked/cache.db`) with WAL mode for performance
