@@ -16,6 +16,8 @@
     "components/**/*.tsx",
     "lib/**/*.ts",
     "lib/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
     "providers/**/*.ts",
     "providers/**/*.tsx",
     "!**/*.test.ts",
