@@ -40,6 +40,9 @@ const mockElectron = {
     sync: jest.fn(),
     status: jest.fn(),
   },
+  analytics: {
+    getMonthlySummary: jest.fn(),
+  },
 };
 
 describe("Electron IPC client", () => {

@@ -1,6 +1,23 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import DashboardPage from "../page";
 
+// Mock date-fns to return consistent dates - only mock functions used in page.tsx
+// ActivityHeatmap uses its own date-fns functions which should use real implementation
+jest.mock("date-fns", () => {
+  const actual = jest.requireActual("date-fns");
+  return {
+    ...actual,
+    format: jest.fn((date, formatStr) => {
+      if (formatStr === "yyyy-MM") return "2026-01";
+      if (formatStr === "MMMM yyyy") return "January 2026";
+      // Let other formats pass through to real implementation
+      return actual.format(date, formatStr);
+    }),
+    endOfMonth: jest.fn(() => new Date("2026-01-31")),
+    differenceInDays: jest.fn(() => 9),
+  };
+});
+
 // Mock window.electron
 const mockElectron = {
   platform: "darwin" as NodeJS.Platform,
@@ -8,14 +25,12 @@ const mockElectron = {
   getHealth: jest.fn(),
   invoke: jest.fn(),
   on: jest.fn(),
-  // Window control methods
   window: {
     minimize: jest.fn(),
     maximize: jest.fn(),
     close: jest.fn(),
     isMaximized: jest.fn(),
   },
-  // New API properties added for session/project data
   projects: {
     getAll: jest.fn(),
     getByPath: jest.fn(),
@@ -41,167 +56,241 @@ const mockElectron = {
     sync: jest.fn(),
     status: jest.fn(),
   },
+  analytics: {
+    getMonthlySummary: jest.fn(),
+  },
+};
+
+const mockSummary = {
+  month: "2026-01",
+  totalSessions: 127,
+  totalActiveTime: 564120000, // ~156h 42m
+  estimatedApiCost: 847.23,
+  humanTime: 0,
+  claudeTime: 0,
+  dailyActivity: [
+    { date: "2026-01-15", sessionCount: 3, totalTime: 3600000 },
+    { date: "2026-01-16", sessionCount: 5, totalTime: 7200000 },
+  ],
+  topProjects: [
+    {
+      path: "/Users/test/raincheck",
+      name: "raincheck",
+      sessionCount: 53,
+      totalTime: 1024440000,
+      estimatedCost: 412.5,
+    },
+    {
+      path: "/Users/test/solokit",
+      name: "solokit",
+      sessionCount: 25,
+      totalTime: 252900000,
+      estimatedCost: 156.2,
+    },
+  ],
 };
 
 describe("DashboardPage Component", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Clear any existing electron property
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (window as any).electron;
   });
 
-  it("renders main heading", () => {
-    render(<DashboardPage />);
-    expect(screen.getByText("Clocked")).toBeInTheDocument();
-  });
-
-  it("renders tagline", () => {
-    render(<DashboardPage />);
-    expect(
-      screen.getByText("Time tracking for Claude Code development sessions")
-    ).toBeInTheDocument();
-  });
-
-  it("renders Electron Connection card", () => {
-    render(<DashboardPage />);
-    expect(screen.getByText("Electron Connection")).toBeInTheDocument();
-  });
-
-  it("renders Health Status card", () => {
-    render(<DashboardPage />);
-    expect(screen.getByText("Health Status")).toBeInTheDocument();
-  });
-
-  it("shows browser mode when not in Electron", async () => {
-    render(<DashboardPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("Running in browser mode")).toBeInTheDocument();
+  describe("when not in Electron", () => {
+    it("renders month header", () => {
+      render(<DashboardPage />);
+      expect(screen.getByText("JANUARY 2026 USAGE")).toBeInTheDocument();
     });
-  });
 
-  it("shows health unavailable when not in Electron", async () => {
-    render(<DashboardPage />);
+    it("shows browser mode message when not in Electron", async () => {
+      render(<DashboardPage />);
 
-    await waitFor(() => {
-      expect(screen.getByText("Health check unavailable")).toBeInTheDocument();
-    });
-  });
-
-  it("shows no default project when not in Electron", async () => {
-    render(<DashboardPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("No Default Project")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(
+          screen.getByText("Running in browser mode - connect via Electron for live data")
+        ).toBeInTheDocument();
+      });
     });
   });
 
   describe("when in Electron", () => {
     beforeEach(() => {
       window.electron = mockElectron;
-      // Default mock for getDefault - no default project
-      mockElectron.projects.getDefault.mockResolvedValue({ project: null });
     });
 
-    it("shows connected status when Electron API responds", async () => {
-      mockElectron.getAppVersion.mockResolvedValue("0.1.0");
-      mockElectron.getHealth.mockResolvedValue({
-        status: "ok",
-        timestamp: new Date().toISOString(),
+    it("renders loading state initially", () => {
+      mockElectron.analytics.getMonthlySummary.mockImplementation(
+        () => new Promise(() => {}) // Never resolves - stays loading
+      );
+
+      render(<DashboardPage />);
+      // Check for loading spinner (Loader2 renders as SVG)
+      expect(document.querySelector(".animate-spin")).toBeInTheDocument();
+    });
+
+    it("renders month header with usage data", async () => {
+      mockElectron.analytics.getMonthlySummary.mockResolvedValue({
+        summary: mockSummary,
       });
 
       render(<DashboardPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("Connected to Electron")).toBeInTheDocument();
+        expect(screen.getByText("JANUARY 2026 USAGE")).toBeInTheDocument();
       });
     });
 
-    it("displays app version from Electron", async () => {
-      mockElectron.getAppVersion.mockResolvedValue("0.1.0");
-      mockElectron.getHealth.mockResolvedValue({
-        status: "ok",
-        timestamp: new Date().toISOString(),
+    it("renders days remaining", async () => {
+      mockElectron.analytics.getMonthlySummary.mockResolvedValue({
+        summary: mockSummary,
       });
 
       render(<DashboardPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("Version: 0.1.0")).toBeInTheDocument();
+        expect(screen.getByText("9 days remaining")).toBeInTheDocument();
       });
     });
 
-    it("displays health status from Electron", async () => {
-      mockElectron.getAppVersion.mockResolvedValue("0.1.0");
-      mockElectron.getHealth.mockResolvedValue({
-        status: "ok",
-        timestamp: "2026-01-21T12:00:00.000Z",
+    it("renders sessions metric card", async () => {
+      mockElectron.analytics.getMonthlySummary.mockResolvedValue({
+        summary: mockSummary,
       });
 
       render(<DashboardPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("Status: ok")).toBeInTheDocument();
+        expect(screen.getByText("Sessions")).toBeInTheDocument();
+        expect(screen.getByText("127")).toBeInTheDocument();
       });
     });
 
-    it("shows error when Electron API fails", async () => {
-      mockElectron.getAppVersion.mockRejectedValue(new Error("Connection failed"));
-      mockElectron.getHealth.mockRejectedValue(new Error("Connection failed"));
-
-      render(<DashboardPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Error: Connection failed")).toBeInTheDocument();
-      });
-    });
-
-    it("shows default project when one is set", async () => {
-      mockElectron.getAppVersion.mockResolvedValue("0.1.0");
-      mockElectron.getHealth.mockResolvedValue({
-        status: "ok",
-        timestamp: new Date().toISOString(),
-      });
-      mockElectron.projects.getDefault.mockResolvedValue({
-        project: {
-          path: "/Users/test/my-project",
-          name: "my-project",
-          firstActivity: "2024-01-01T10:00:00Z",
-          lastActivity: "2024-01-15T15:30:00Z",
-          sessionCount: 5,
-          messageCount: 100,
-          totalTime: 3600000,
-          isHidden: false,
-          groupId: null,
-          isDefault: true,
-        },
+    it("renders session time metric card", async () => {
+      mockElectron.analytics.getMonthlySummary.mockResolvedValue({
+        summary: mockSummary,
       });
 
       render(<DashboardPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("my-project")).toBeInTheDocument();
-        expect(screen.getByText("View Project")).toBeInTheDocument();
+        expect(screen.getByText("Session Time")).toBeInTheDocument();
+        // 564120000ms = 156h 42m
+        expect(screen.getByText("156h 42m")).toBeInTheDocument();
       });
     });
-  });
 
-  it("has grid layout for cards", () => {
-    const { container } = render(<DashboardPage />);
-    const grid = container.querySelector(".grid");
-    expect(grid).toBeInTheDocument();
-  });
+    it("renders API cost metric card", async () => {
+      mockElectron.analytics.getMonthlySummary.mockResolvedValue({
+        summary: mockSummary,
+      });
 
-  it("renders heading as h1", () => {
-    render(<DashboardPage />);
-    const heading = screen.getByText("Clocked");
-    expect(heading.tagName).toBe("H1");
-  });
+      render(<DashboardPage />);
 
-  it("has proper spacing between sections", () => {
-    const { container } = render(<DashboardPage />);
-    const wrapper = container.querySelector(".space-y-6");
-    expect(wrapper).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText("API Cost")).toBeInTheDocument();
+        expect(screen.getByText("$847.23")).toBeInTheDocument();
+      });
+    });
+
+    it("renders subscription metric card", async () => {
+      mockElectron.analytics.getMonthlySummary.mockResolvedValue({
+        summary: mockSummary,
+      });
+
+      render(<DashboardPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Subscription")).toBeInTheDocument();
+        expect(screen.getByText("$100.00")).toBeInTheDocument();
+      });
+    });
+
+    it("renders value multiplier metric card", async () => {
+      mockElectron.analytics.getMonthlySummary.mockResolvedValue({
+        summary: mockSummary,
+      });
+
+      render(<DashboardPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Value")).toBeInTheDocument();
+        expect(screen.getByText("8.47x")).toBeInTheDocument();
+      });
+    });
+
+    it("renders human:AI ratio metric card with placeholder when no data", async () => {
+      mockElectron.analytics.getMonthlySummary.mockResolvedValue({
+        summary: mockSummary,
+      });
+
+      render(<DashboardPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Human : AI")).toBeInTheDocument();
+        expect(screen.getByText("\u2014")).toBeInTheDocument(); // em dash placeholder
+      });
+    });
+
+    it("renders activity heatmap section", async () => {
+      mockElectron.analytics.getMonthlySummary.mockResolvedValue({
+        summary: mockSummary,
+      });
+
+      render(<DashboardPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Activity")).toBeInTheDocument();
+      });
+    });
+
+    it("renders top projects section", async () => {
+      mockElectron.analytics.getMonthlySummary.mockResolvedValue({
+        summary: mockSummary,
+      });
+
+      render(<DashboardPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Top Projects")).toBeInTheDocument();
+        expect(screen.getByText("raincheck")).toBeInTheDocument();
+        expect(screen.getByText("solokit")).toBeInTheDocument();
+      });
+    });
+
+    it("shows error state when API returns error", async () => {
+      mockElectron.analytics.getMonthlySummary.mockResolvedValue({
+        error: "Database error",
+      });
+
+      render(<DashboardPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Database error")).toBeInTheDocument();
+      });
+    });
+
+    it("shows error state when API throws", async () => {
+      mockElectron.analytics.getMonthlySummary.mockRejectedValue(new Error("Network error"));
+
+      render(<DashboardPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Network error")).toBeInTheDocument();
+      });
+    });
+
+    it("has proper spacing between sections", async () => {
+      mockElectron.analytics.getMonthlySummary.mockResolvedValue({
+        summary: mockSummary,
+      });
+
+      const { container } = render(<DashboardPage />);
+
+      await waitFor(() => {
+        const wrapper = container.querySelector(".space-y-6");
+        expect(wrapper).toBeInTheDocument();
+      });
+    });
   });
 });

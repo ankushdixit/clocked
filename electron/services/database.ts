@@ -870,3 +870,126 @@ export function clearDatabase(): void {
   db.exec("DELETE FROM projects");
   db.exec("DELETE FROM project_groups");
 }
+
+// ============================================================================
+// Analytics Queries
+// ============================================================================
+
+/**
+ * Daily activity data for heatmap
+ */
+export interface DailyActivity {
+  date: string; // "2026-01-15"
+  sessionCount: number;
+  totalTime: number; // ms
+}
+
+/**
+ * Project summary for top projects list
+ */
+export interface ProjectSummary {
+  path: string;
+  name: string;
+  sessionCount: number;
+  totalTime: number; // ms
+  estimatedCost: number; // dollars (placeholder until token counting)
+}
+
+/**
+ * Monthly summary data for dashboard
+ */
+export interface MonthlySummary {
+  month: string; // "2026-01"
+  totalSessions: number;
+  totalActiveTime: number; // ms
+  estimatedApiCost: number; // dollars (placeholder)
+  humanTime: number; // ms (placeholder until Story 2.1)
+  claudeTime: number; // ms (placeholder until Story 2.1)
+  dailyActivity: DailyActivity[];
+  topProjects: ProjectSummary[];
+}
+
+/**
+ * Get monthly summary data for dashboard
+ * @param month - Month in "YYYY-MM" format
+ * @returns Monthly summary with aggregated data
+ */
+export function getMonthlySummary(month: string): MonthlySummary {
+  const db = getDatabase();
+
+  // Calculate date range for the month
+  const startDate = `${month}-01T00:00:00.000Z`;
+  const [year, monthNum] = month.split("-").map(Number);
+  const nextMonth =
+    monthNum === 12 ? `${year + 1}-01` : `${year}-${String(monthNum + 1).padStart(2, "0")}`;
+  const endDate = `${nextMonth}-01T00:00:00.000Z`;
+
+  // Get total sessions and time for the month
+  const totalsStmt = db.prepare(`
+    SELECT
+      COUNT(*) as totalSessions,
+      COALESCE(SUM(duration), 0) as totalActiveTime
+    FROM sessions
+    WHERE created >= ? AND created < ?
+  `);
+  const totals = totalsStmt.get(startDate, endDate) as {
+    totalSessions: number;
+    totalActiveTime: number;
+  };
+
+  // Get daily activity for heatmap
+  const dailyStmt = db.prepare(`
+    SELECT
+      DATE(created) as date,
+      COUNT(*) as sessionCount,
+      COALESCE(SUM(duration), 0) as totalTime
+    FROM sessions
+    WHERE created >= ? AND created < ?
+    GROUP BY DATE(created)
+    ORDER BY date ASC
+  `);
+  const dailyActivity = dailyStmt.all(startDate, endDate) as DailyActivity[];
+
+  // Get top 5 projects by session time for the month
+  const topProjectsStmt = db.prepare(`
+    SELECT
+      s.project_path as path,
+      p.name as name,
+      COUNT(*) as sessionCount,
+      COALESCE(SUM(s.duration), 0) as totalTime
+    FROM sessions s
+    JOIN projects p ON s.project_path = p.path
+    WHERE s.created >= ? AND s.created < ?
+    GROUP BY s.project_path
+    ORDER BY totalTime DESC
+    LIMIT 5
+  `);
+  const topProjectsRaw = topProjectsStmt.all(startDate, endDate) as Array<{
+    path: string;
+    name: string;
+    sessionCount: number;
+    totalTime: number;
+  }>;
+
+  // Add estimated cost (placeholder - will be calculated from tokens in Story 2.2)
+  // For now, estimate $0.05 per minute of session time as rough approximation
+  const COST_PER_MINUTE = 0.05;
+  const topProjects: ProjectSummary[] = topProjectsRaw.map((p) => ({
+    ...p,
+    estimatedCost: (p.totalTime / 60000) * COST_PER_MINUTE,
+  }));
+
+  // Calculate total estimated API cost (placeholder)
+  const estimatedApiCost = (totals.totalActiveTime / 60000) * COST_PER_MINUTE;
+
+  return {
+    month,
+    totalSessions: totals.totalSessions,
+    totalActiveTime: totals.totalActiveTime,
+    estimatedApiCost,
+    humanTime: 0, // Placeholder until Story 2.1
+    claudeTime: 0, // Placeholder until Story 2.1
+    dailyActivity,
+    topProjects,
+  };
+}

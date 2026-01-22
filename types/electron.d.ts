@@ -95,6 +95,45 @@ export interface SuccessResponse {
   error?: string;
 }
 
+/**
+ * Daily activity data for heatmap
+ */
+export interface DailyActivity {
+  date: string; // "2026-01-15"
+  sessionCount: number;
+  totalTime: number; // ms
+}
+
+/**
+ * Project summary for top projects list
+ */
+export interface ProjectSummary {
+  path: string;
+  name: string;
+  sessionCount: number;
+  totalTime: number; // ms
+  estimatedCost: number; // dollars
+}
+
+/**
+ * Monthly summary data for dashboard
+ */
+export interface MonthlySummary {
+  month: string; // "2026-01"
+  totalSessions: number;
+  totalActiveTime: number; // ms
+  estimatedApiCost: number; // dollars
+  humanTime: number; // ms (placeholder until Story 2.1)
+  claudeTime: number; // ms (placeholder until Story 2.1)
+  dailyActivity: DailyActivity[];
+  topProjects: ProjectSummary[];
+}
+
+export interface MonthlySummaryResponse {
+  summary?: MonthlySummary;
+  error?: string;
+}
+
 declare global {
   interface Window {
     electron: {
@@ -152,6 +191,11 @@ declare global {
       data: {
         sync: () => Promise<SyncResponse>;
         status: () => Promise<DataStatusResponse>;
+      };
+
+      // Analytics API
+      analytics: {
+        getMonthlySummary: (_month: string) => Promise<MonthlySummaryResponse>;
       };
 
       // Generic invoke for custom channels
