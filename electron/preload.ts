@@ -5,6 +5,12 @@ const ALLOWED_CHANNELS = [
   // App channels
   "app:version",
   "app:health",
+  "app:platform",
+  // Window control channels
+  "window:minimize",
+  "window:maximize",
+  "window:close",
+  "window:isMaximized",
   // Project channels
   "projects:getAll",
   "projects:getByPath",
@@ -29,9 +35,20 @@ const ALLOWED_CHANNELS = [
 ];
 
 contextBridge.exposeInMainWorld("electron", {
+  // Platform detection (synchronous - available immediately)
+  platform: process.platform,
+
   // Legacy convenience methods
   getAppVersion: (): Promise<string> => ipcRenderer.invoke("app:version"),
   getHealth: (): Promise<{ status: string; timestamp: string }> => ipcRenderer.invoke("app:health"),
+
+  // Window control methods
+  window: {
+    minimize: (): Promise<void> => ipcRenderer.invoke("window:minimize"),
+    maximize: (): Promise<void> => ipcRenderer.invoke("window:maximize"),
+    close: (): Promise<void> => ipcRenderer.invoke("window:close"),
+    isMaximized: (): Promise<boolean> => ipcRenderer.invoke("window:isMaximized"),
+  },
 
   // Projects API
   projects: {

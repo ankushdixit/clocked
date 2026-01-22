@@ -1,18 +1,16 @@
-import { Header } from "@/components/layout/header";
 import { Sidebar } from "@/components/layout/sidebar";
+import { WindowControls } from "@/components/layout/window-controls";
 
 /**
  * Dashboard layout
- * Provides consistent header and sidebar for all dashboard pages
+ * Frameless window with sidebar navigation and optional window controls
  */
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header />
-      <div className="flex flex-1">
-        <Sidebar />
-        <main className="flex-1 p-6">{children}</main>
-      </div>
+    <div className="flex h-screen bg-background">
+      <Sidebar />
+      <main className="flex-1 overflow-auto p-6">{children}</main>
+      <WindowControls />
     </div>
   );
 }

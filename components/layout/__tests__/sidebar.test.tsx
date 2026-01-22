@@ -6,16 +6,48 @@ jest.mock("next/navigation", () => ({
   usePathname: jest.fn(() => "/"),
 }));
 
+// Mock next/image
+jest.mock("next/image", () => ({
+  __esModule: true,
+  default: function MockImage({
+    alt,
+    src,
+  }: {
+    alt: string;
+    src: string;
+    width?: number;
+    height?: number;
+    priority?: boolean;
+  }) {
+    return <img alt={alt} src={src} />;
+  },
+}));
+
+// Mock window.electron for platform detection
+beforeAll(() => {
+  Object.defineProperty(window, "electron", {
+    value: {
+      platform: "darwin",
+    },
+    writable: true,
+    configurable: true,
+  });
+});
+
 describe("Sidebar Component", () => {
   it("renders sidebar navigation", () => {
     const { container } = render(<Sidebar />);
     expect(container.querySelector("aside")).toBeInTheDocument();
   });
 
+  it("renders Clocked logo", () => {
+    render(<Sidebar />);
+    expect(screen.getByAltText("Clocked")).toBeInTheDocument();
+  });
+
   it("renders Dashboard navigation link", () => {
     render(<Sidebar />);
-    // Dashboard appears twice (logo + nav), so use getAllByText
-    expect(screen.getAllByText("Dashboard")).toHaveLength(2);
+    expect(screen.getByText("Dashboard")).toBeInTheDocument();
   });
 
   it("has accessible navigation landmark", () => {
@@ -25,12 +57,8 @@ describe("Sidebar Component", () => {
 
   it("renders links with correct href attributes", () => {
     render(<Sidebar />);
-    const dashboardLinks = screen.getAllByText("Dashboard");
-    // Both should link to root
-    dashboardLinks.forEach((link) => {
-      const anchor = link.closest("a");
-      expect(anchor).toHaveAttribute("href", "/");
-    });
+    const dashboardLink = screen.getByText("Dashboard").closest("a");
+    expect(dashboardLink).toHaveAttribute("href", "/");
   });
 
   it("marks dashboard as active on root path", () => {
@@ -39,8 +67,7 @@ describe("Sidebar Component", () => {
 
     render(<Sidebar />);
 
-    // Get the second "Dashboard" link (the one in navigation, not the logo)
-    const dashboardLink = screen.getAllByText("Dashboard")[1]?.closest("a");
+    const dashboardLink = screen.getByText("Dashboard").closest("a");
     expect(dashboardLink).toHaveAttribute("aria-current", "page");
   });
 
@@ -58,9 +85,8 @@ describe("Sidebar Component", () => {
 
   it("renders brand logo link in header", () => {
     render(<Sidebar />);
-    const brandLinks = screen.getAllByText("Dashboard");
-    // First one is in the header/logo area
-    const logoLink = brandLinks[0]?.closest("a");
+    const logoImage = screen.getByAltText("Clocked");
+    const logoLink = logoImage.closest("a");
     expect(logoLink).toHaveAttribute("href", "/");
   });
 
@@ -74,5 +100,43 @@ describe("Sidebar Component", () => {
     const { container } = render(<Sidebar />);
     const aside = container.querySelector("aside");
     expect(aside).toHaveClass("border-r");
+  });
+
+  it("brand link has no-drag class", () => {
+    render(<Sidebar />);
+    const logoImage = screen.getByAltText("Clocked");
+    const logoLink = logoImage.closest("a");
+    expect(logoLink).toHaveClass("app-no-drag");
+  });
+
+  describe("platform-specific styling", () => {
+    it("renders traffic light area on macOS", () => {
+      Object.defineProperty(window, "electron", {
+        value: { platform: "darwin" },
+        writable: true,
+        configurable: true,
+      });
+
+      const { container, rerender } = render(<Sidebar />);
+      rerender(<Sidebar />);
+
+      // On macOS, there should be a traffic light drag region
+      const dragRegions = container.querySelectorAll(".app-drag-region");
+      expect(dragRegions.length).toBeGreaterThan(0);
+    });
+
+    it("has drag region on Windows", () => {
+      Object.defineProperty(window, "electron", {
+        value: { platform: "win32" },
+        writable: true,
+        configurable: true,
+      });
+
+      const { container, rerender } = render(<Sidebar />);
+      rerender(<Sidebar />);
+
+      const dragRegion = container.querySelector(".app-drag-region");
+      expect(dragRegion).toBeInTheDocument();
+    });
   });
 });

@@ -37,15 +37,33 @@ if (process.env.NODE_ENV === "development") {
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): void {
+  const isMac = process.platform === "darwin";
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    minWidth: 800,
+    minHeight: 600,
+    show: false, // Don't show until ready to prevent rendering issues
     title: "Clocked",
+    // Use frame:false + setWindowButtonVisibility for better traffic light behavior
+    frame: false,
+    titleBarStyle: isMac ? "hiddenInset" : "hidden",
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       preload: path.join(__dirname, "preload.js"),
     },
+  });
+
+  // On macOS, show the native traffic lights with frame:false
+  if (isMac) {
+    mainWindow.setWindowButtonVisibility(true);
+  }
+
+  // Show window when ready to ensure proper rendering of traffic lights
+  mainWindow.once("ready-to-show", () => {
+    mainWindow?.show();
   });
 
   // Set Content Security Policy
@@ -121,6 +139,25 @@ ipcMain.handle("app:health", () => ({
   status: "ok",
   timestamp: new Date().toISOString(),
 }));
+ipcMain.handle("app:platform", () => process.platform);
+
+// IPC Handlers - Window Controls
+ipcMain.handle("window:minimize", () => {
+  mainWindow?.minimize();
+});
+ipcMain.handle("window:maximize", () => {
+  if (mainWindow?.isMaximized()) {
+    mainWindow.unmaximize();
+  } else {
+    mainWindow?.maximize();
+  }
+});
+ipcMain.handle("window:close", () => {
+  mainWindow?.close();
+});
+ipcMain.handle("window:isMaximized", () => {
+  return mainWindow?.isMaximized() ?? false;
+});
 
 // IPC Handlers - Projects
 ipcMain.handle("projects:getAll", (_event, { includeHidden } = {}) => {

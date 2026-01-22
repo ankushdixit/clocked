@@ -3,10 +3,18 @@ import DashboardPage from "../page";
 
 // Mock window.electron
 const mockElectron = {
+  platform: "darwin" as NodeJS.Platform,
   getAppVersion: jest.fn(),
   getHealth: jest.fn(),
   invoke: jest.fn(),
   on: jest.fn(),
+  // Window control methods
+  window: {
+    minimize: jest.fn(),
+    maximize: jest.fn(),
+    close: jest.fn(),
+    isMaximized: jest.fn(),
+  },
   // New API properties added for session/project data
   projects: {
     getAll: jest.fn(),

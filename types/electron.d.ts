@@ -98,9 +98,21 @@ export interface SuccessResponse {
 declare global {
   interface Window {
     electron: {
+      // Platform detection (synchronous)
+      // eslint-disable-next-line no-undef
+      platform: NodeJS.Platform;
+
       // Legacy convenience methods
       getAppVersion: () => Promise<string>;
       getHealth: () => Promise<{ status: string; timestamp: string }>;
+
+      // Window control methods
+      window: {
+        minimize: () => Promise<void>;
+        maximize: () => Promise<void>;
+        close: () => Promise<void>;
+        isMaximized: () => Promise<boolean>;
+      };
 
       // Projects API
       projects: {
