@@ -1,5 +1,5 @@
 /**
- * @jest-environment jsdom
+ * @jest-environment @stryker-mutator/jest-runner/jest-env/jsdom
  */
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ProjectsList } from "../ProjectsList";
