@@ -8,6 +8,21 @@ export interface Project {
   lastActivity: string;
   sessionCount: number;
   messageCount: number;
+  totalTime: number; // Total session duration in milliseconds
+  isHidden: boolean;
+  groupId: string | null;
+  isDefault: boolean;
+}
+
+/**
+ * Project group data model
+ */
+export interface ProjectGroup {
+  id: string;
+  name: string;
+  color: string | null;
+  createdAt: string;
+  sortOrder: number;
 }
 
 /**
@@ -65,6 +80,21 @@ export interface DataStatusResponse {
   error?: string;
 }
 
+export interface ProjectGroupsResponse {
+  groups?: ProjectGroup[];
+  error?: string;
+}
+
+export interface ProjectGroupResponse {
+  group?: ProjectGroup | null;
+  error?: string;
+}
+
+export interface SuccessResponse {
+  success?: boolean;
+  error?: string;
+}
+
 declare global {
   interface Window {
     electron: {
@@ -74,9 +104,24 @@ declare global {
 
       // Projects API
       projects: {
-        getAll: () => Promise<ProjectsResponse>;
+        getAll: (_options?: { includeHidden?: boolean }) => Promise<ProjectsResponse>;
         getByPath: (_path: string) => Promise<ProjectResponse>;
         getCount: () => Promise<CountResponse>;
+        setHidden: (_path: string, _hidden: boolean) => Promise<SuccessResponse>;
+        setGroup: (_path: string, _groupId: string | null) => Promise<SuccessResponse>;
+        setDefault: (_path: string) => Promise<SuccessResponse>;
+        getDefault: () => Promise<ProjectResponse>;
+      };
+
+      // Project Groups API
+      groups: {
+        getAll: () => Promise<ProjectGroupsResponse>;
+        create: (_name: string, _color?: string | null) => Promise<ProjectGroupResponse>;
+        update: (
+          _id: string,
+          _updates: { name?: string; color?: string | null; sortOrder?: number }
+        ) => Promise<ProjectGroupResponse>;
+        delete: (_id: string) => Promise<SuccessResponse>;
       };
 
       // Sessions API

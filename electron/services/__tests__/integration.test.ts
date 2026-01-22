@@ -50,15 +50,23 @@ describe("Integration: Session Parser + Database", () => {
     }
   });
 
+  // Create a project with path inside the test home directory
+  // This ensures both the Claude project dir and decoded path can be created
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function createProject(encodedPath: string, sessions: any[]): void {
+  function createTestProject(projectName: string, sessions: any[]): string {
+    const decodedPath = join(testHomeDir, "projects", projectName);
+    const encodedPath = decodedPath.replace(/\//g, "-");
     const projectDir = join(claudeProjectsPath, encodedPath);
+
     mkdirSync(projectDir, { recursive: true });
+    mkdirSync(decodedPath, { recursive: true });
     writeFileSync(join(projectDir, "sessions-index.json"), JSON.stringify(sessions));
+
+    return decodedPath;
   }
 
-  it("syncs single project with multiple sessions", () => {
-    createProject("-Users-dev-myproject", [
+  it("syncs single project with multiple sessions", async () => {
+    const projectPath = createTestProject("myproject", [
       {
         session_id: "session-1",
         created: "2026-01-01T10:00:00.000Z",
@@ -77,7 +85,7 @@ describe("Integration: Session Parser + Database", () => {
       },
     ]);
 
-    const result = syncSessionsToDatabase();
+    const result = await syncSessionsToDatabase();
 
     expect(result.projects).toHaveLength(1);
     expect(result.sessions).toHaveLength(2);
@@ -86,7 +94,7 @@ describe("Integration: Session Parser + Database", () => {
     // Check database
     const projects = getAllProjects();
     expect(projects).toHaveLength(1);
-    expect(projects[0].path).toBe("/Users/dev/myproject");
+    expect(projects[0].path).toBe(projectPath);
     expect(projects[0].name).toBe("myproject");
     expect(projects[0].sessionCount).toBe(2);
     expect(projects[0].messageCount).toBe(35); // 10 + 25
@@ -95,8 +103,8 @@ describe("Integration: Session Parser + Database", () => {
     expect(sessions).toHaveLength(2);
   });
 
-  it("syncs multiple projects", () => {
-    createProject("-Users-dev-project1", [
+  it("syncs multiple projects", async () => {
+    const project1Path = createTestProject("project1", [
       {
         session_id: "p1-session-1",
         created: "2026-01-01T10:00:00.000Z",
@@ -105,7 +113,7 @@ describe("Integration: Session Parser + Database", () => {
       },
     ]);
 
-    createProject("-Users-dev-project2", [
+    const project2Path = createTestProject("project2", [
       {
         session_id: "p2-session-1",
         created: "2026-01-05T10:00:00.000Z",
@@ -120,7 +128,7 @@ describe("Integration: Session Parser + Database", () => {
       },
     ]);
 
-    createProject("-home-user-code", [
+    createTestProject("code", [
       {
         session_id: "p3-session-1",
         created: "2026-01-10T10:00:00.000Z",
@@ -129,7 +137,7 @@ describe("Integration: Session Parser + Database", () => {
       },
     ]);
 
-    const result = syncSessionsToDatabase();
+    const result = await syncSessionsToDatabase();
 
     expect(result.projects).toHaveLength(3);
     expect(result.sessions).toHaveLength(4);
@@ -141,31 +149,31 @@ describe("Integration: Session Parser + Database", () => {
     expect(sessions).toHaveLength(4);
 
     // Check sessions by project
-    const p1Sessions = getSessionsByProject("/Users/dev/project1");
+    const p1Sessions = getSessionsByProject(project1Path);
     expect(p1Sessions.sessions).toHaveLength(1);
     expect(p1Sessions.total).toBe(1);
 
-    const p2Sessions = getSessionsByProject("/Users/dev/project2");
+    const p2Sessions = getSessionsByProject(project2Path);
     expect(p2Sessions.sessions).toHaveLength(2);
     expect(p2Sessions.total).toBe(2);
   });
 
-  it("handles project with no sessions-index.json", () => {
+  it("handles project with no sessions-index.json", async () => {
     // Create project directory without sessions-index.json
     const projectDir = join(claudeProjectsPath, "-Users-dev-empty");
     mkdirSync(projectDir, { recursive: true });
 
-    const result = syncSessionsToDatabase();
+    const result = await syncSessionsToDatabase();
 
-    // Project without sessions-index.json should be skipped
+    // Project without sessions-index.json should be skipped (no jsonl files either)
     expect(result.projects).toHaveLength(0);
     expect(result.sessions).toHaveLength(0);
     expect(result.errors).toHaveLength(0);
   });
 
-  it("handles malformed sessions-index.json gracefully", () => {
+  it("handles malformed sessions-index.json gracefully", async () => {
     // Create project with valid sessions
-    createProject("-Users-dev-valid", [
+    const validPath = createTestProject("valid", [
       {
         session_id: "valid-session",
         created: "2026-01-01T10:00:00.000Z",
@@ -173,12 +181,15 @@ describe("Integration: Session Parser + Database", () => {
       },
     ]);
 
-    // Create project with malformed JSON
-    const malformedDir = join(claudeProjectsPath, "-Users-dev-malformed");
+    // Create project with malformed JSON (also need to create decoded path)
+    const malformedDecodedPath = join(testHomeDir, "projects", "malformed");
+    const malformedEncodedPath = malformedDecodedPath.replace(/\//g, "-");
+    const malformedDir = join(claudeProjectsPath, malformedEncodedPath);
     mkdirSync(malformedDir, { recursive: true });
+    mkdirSync(malformedDecodedPath, { recursive: true });
     writeFileSync(join(malformedDir, "sessions-index.json"), "not valid json");
 
-    const result = syncSessionsToDatabase();
+    const result = await syncSessionsToDatabase();
 
     // Valid project should be synced
     expect(result.projects).toHaveLength(1);
@@ -191,11 +202,11 @@ describe("Integration: Session Parser + Database", () => {
     // Check database has only valid data
     const projects = getAllProjects();
     expect(projects).toHaveLength(1);
-    expect(projects[0].path).toBe("/Users/dev/valid");
+    expect(projects[0].path).toBe(validPath);
   });
 
-  it("skips invalid session entries but keeps valid ones", () => {
-    createProject("-Users-dev-mixed", [
+  it("skips invalid session entries but keeps valid ones", async () => {
+    createTestProject("mixed", [
       // Valid
       {
         session_id: "valid-1",
@@ -219,7 +230,7 @@ describe("Integration: Session Parser + Database", () => {
       },
     ]);
 
-    const result = syncSessionsToDatabase();
+    const result = await syncSessionsToDatabase();
 
     expect(result.sessions).toHaveLength(2);
     expect(result.errors.length).toBeGreaterThan(0);
@@ -231,8 +242,8 @@ describe("Integration: Session Parser + Database", () => {
     expect(sessionIds).toContain("valid-2");
   });
 
-  it("calculates correct project aggregates", () => {
-    createProject("-Users-dev-project", [
+  it("calculates correct project aggregates", async () => {
+    createTestProject("project", [
       {
         session_id: "session-1",
         created: "2026-01-10T10:00:00.000Z",
@@ -253,7 +264,7 @@ describe("Integration: Session Parser + Database", () => {
       },
     ]);
 
-    syncSessionsToDatabase();
+    await syncSessionsToDatabase();
 
     const projects = getAllProjects();
     expect(projects).toHaveLength(1);
@@ -265,9 +276,9 @@ describe("Integration: Session Parser + Database", () => {
     expect(project.lastActivity).toBe("2026-01-15T18:00:00.000Z");
   });
 
-  it("updates existing data on re-sync", () => {
+  it("updates existing data on re-sync", async () => {
     // First sync
-    createProject("-Users-dev-project", [
+    createTestProject("project", [
       {
         session_id: "session-1",
         created: "2026-01-01T10:00:00.000Z",
@@ -276,11 +287,11 @@ describe("Integration: Session Parser + Database", () => {
       },
     ]);
 
-    syncSessionsToDatabase();
+    await syncSessionsToDatabase();
     expect(getAllSessions()).toHaveLength(1);
 
     // Update sessions-index.json with more sessions
-    createProject("-Users-dev-project", [
+    createTestProject("project", [
       {
         session_id: "session-1",
         created: "2026-01-01T10:00:00.000Z",
@@ -296,7 +307,7 @@ describe("Integration: Session Parser + Database", () => {
     ]);
 
     // Second sync
-    syncSessionsToDatabase();
+    await syncSessionsToDatabase();
 
     const sessions = getAllSessions();
     expect(sessions).toHaveLength(2);
@@ -306,11 +317,11 @@ describe("Integration: Session Parser + Database", () => {
     expect(projects[0].messageCount).toBe(30);
   });
 
-  it("returns empty result when no Claude projects exist", () => {
+  it("returns empty result when no Claude projects exist", async () => {
     // Remove the Claude projects directory
     rmSync(claudeProjectsPath, { recursive: true, force: true });
 
-    const result = syncSessionsToDatabase();
+    const result = await syncSessionsToDatabase();
 
     expect(result.projects).toHaveLength(0);
     expect(result.sessions).toHaveLength(0);
@@ -321,7 +332,7 @@ describe("Integration: Session Parser + Database", () => {
   });
 
   describe("Query performance", () => {
-    it("queries 1000 sessions in under 100ms", () => {
+    it("queries 1000 sessions in under 100ms", async () => {
       // Ensure the Claude projects directory exists (may be deleted by previous test)
       if (!existsSync(claudeProjectsPath)) {
         mkdirSync(claudeProjectsPath, { recursive: true });
@@ -343,17 +354,9 @@ describe("Integration: Session Parser + Database", () => {
         };
       });
 
-      // Note: the directory "-Users-dev-largeproject" decodes to "/Users/dev/largeproject"
-      // (all hyphens become slashes in the path decoder)
-      createProject("-Users-dev-largeproject", sessions);
+      const projectPath = createTestProject("largeproject", sessions);
 
-      // Verify the file was created
-      const projectDir = join(claudeProjectsPath, "-Users-dev-largeproject");
-      const indexPath = join(projectDir, "sessions-index.json");
-      expect(existsSync(projectDir)).toBe(true);
-      expect(existsSync(indexPath)).toBe(true);
-
-      const result = syncSessionsToDatabase();
+      const result = await syncSessionsToDatabase();
 
       // Verify sync worked
       expect(result.sessions.length).toBe(1000);
@@ -367,7 +370,7 @@ describe("Integration: Session Parser + Database", () => {
 
       // Measure query time for getSessionsByProject
       const startByProject = performance.now();
-      const resultByProject = getSessionsByProject("/Users/dev/largeproject");
+      const resultByProject = getSessionsByProject(projectPath);
       const endByProject = performance.now();
 
       expect(resultByProject.total).toBe(1000);

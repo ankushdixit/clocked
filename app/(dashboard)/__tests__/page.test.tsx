@@ -12,6 +12,16 @@ const mockElectron = {
     getAll: jest.fn(),
     getByPath: jest.fn(),
     getCount: jest.fn(),
+    setHidden: jest.fn(),
+    setGroup: jest.fn(),
+    setDefault: jest.fn(),
+    getDefault: jest.fn(),
+  },
+  groups: {
+    getAll: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
   },
   sessions: {
     getAll: jest.fn(),
@@ -35,7 +45,7 @@ describe("DashboardPage Component", () => {
 
   it("renders main heading", () => {
     render(<DashboardPage />);
-    expect(screen.getByText("Clocked is ready")).toBeInTheDocument();
+    expect(screen.getByText("Clocked")).toBeInTheDocument();
   });
 
   it("renders tagline", () => {
@@ -71,9 +81,19 @@ describe("DashboardPage Component", () => {
     });
   });
 
+  it("shows no default project when not in Electron", async () => {
+    render(<DashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("No Default Project")).toBeInTheDocument();
+    });
+  });
+
   describe("when in Electron", () => {
     beforeEach(() => {
       window.electron = mockElectron;
+      // Default mock for getDefault - no default project
+      mockElectron.projects.getDefault.mockResolvedValue({ project: null });
     });
 
     it("shows connected status when Electron API responds", async () => {
@@ -128,6 +148,35 @@ describe("DashboardPage Component", () => {
         expect(screen.getByText("Error: Connection failed")).toBeInTheDocument();
       });
     });
+
+    it("shows default project when one is set", async () => {
+      mockElectron.getAppVersion.mockResolvedValue("0.1.0");
+      mockElectron.getHealth.mockResolvedValue({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+      });
+      mockElectron.projects.getDefault.mockResolvedValue({
+        project: {
+          path: "/Users/test/my-project",
+          name: "my-project",
+          firstActivity: "2024-01-01T10:00:00Z",
+          lastActivity: "2024-01-15T15:30:00Z",
+          sessionCount: 5,
+          messageCount: 100,
+          totalTime: 3600000,
+          isHidden: false,
+          groupId: null,
+          isDefault: true,
+        },
+      });
+
+      render(<DashboardPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("my-project")).toBeInTheDocument();
+        expect(screen.getByText("View Project")).toBeInTheDocument();
+      });
+    });
   });
 
   it("has grid layout for cards", () => {
@@ -138,7 +187,7 @@ describe("DashboardPage Component", () => {
 
   it("renders heading as h1", () => {
     render(<DashboardPage />);
-    const heading = screen.getByText("Clocked is ready");
+    const heading = screen.getByText("Clocked");
     expect(heading.tagName).toBe("H1");
   });
 

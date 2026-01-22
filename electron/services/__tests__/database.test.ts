@@ -21,6 +21,8 @@ import {
   getAllProjects,
   getProjectByPath,
   deleteAllProjects,
+  deleteProject,
+  deleteOrphanedProjects,
   upsertSession,
   upsertSessions,
   getAllSessions,
@@ -32,6 +34,17 @@ import {
   getSessionCount,
   getProjectCount,
   clearDatabase,
+  setProjectHidden,
+  getHiddenProjects,
+  setProjectGroup,
+  setDefaultProject,
+  getDefaultProject,
+  clearDefaultProject,
+  createProjectGroup,
+  getAllProjectGroups,
+  getProjectGroupById,
+  updateProjectGroup,
+  deleteProjectGroup,
   ProjectInput,
   SessionInput,
 } from "../database";
@@ -109,6 +122,7 @@ describe("database", () => {
       lastActivity: "2026-01-15T15:00:00.000Z",
       sessionCount: 5,
       messageCount: 100,
+      totalTime: 3600000,
     };
 
     it("upsertProject inserts new project", () => {
@@ -143,6 +157,7 @@ describe("database", () => {
         lastActivity: "2026-01-10T15:00:00.000Z",
         sessionCount: 3,
         messageCount: 50,
+        totalTime: 1800000,
       };
       const project2: ProjectInput = {
         path: "/Users/test/project2",
@@ -151,6 +166,7 @@ describe("database", () => {
         lastActivity: "2026-01-20T15:00:00.000Z",
         sessionCount: 5,
         messageCount: 100,
+        totalTime: 7200000,
       };
 
       upsertProject(project1);
@@ -206,6 +222,7 @@ describe("database", () => {
       lastActivity: "2026-01-15T15:00:00.000Z",
       sessionCount: 1,
       messageCount: 10,
+      totalTime: 3600000,
     };
 
     const testSession: SessionInput = {
@@ -398,6 +415,7 @@ describe("database", () => {
         lastActivity: "2026-01-15T15:00:00.000Z",
         sessionCount: 1,
         messageCount: 5,
+        totalTime: 1800000,
       });
 
       // Add sessions to both projects
@@ -461,6 +479,7 @@ describe("database", () => {
         lastActivity: "2026-01-15T15:00:00.000Z",
         sessionCount: 1,
         messageCount: 10,
+        totalTime: 3600000,
       };
 
       const session: SessionInput = {
@@ -485,6 +504,583 @@ describe("database", () => {
 
       expect(getProjectCount()).toBe(0);
       expect(getSessionCount()).toBe(0);
+    });
+  });
+
+  describe("deleteProject", () => {
+    const testProject: ProjectInput = {
+      path: "/Users/test/project",
+      name: "project",
+      firstActivity: "2026-01-01T10:00:00.000Z",
+      lastActivity: "2026-01-15T15:00:00.000Z",
+      sessionCount: 5,
+      messageCount: 100,
+      totalTime: 3600000,
+    };
+
+    it("deletes a project by path", () => {
+      upsertProject(testProject);
+      expect(getProjectByPath(testProject.path)).not.toBeNull();
+
+      deleteProject(testProject.path);
+      expect(getProjectByPath(testProject.path)).toBeNull();
+    });
+
+    it("does not affect other projects", () => {
+      const project2: ProjectInput = {
+        ...testProject,
+        path: "/Users/test/project2",
+        name: "project2",
+      };
+      upsertProject(testProject);
+      upsertProject(project2);
+
+      deleteProject(testProject.path);
+
+      expect(getProjectByPath(testProject.path)).toBeNull();
+      expect(getProjectByPath(project2.path)).not.toBeNull();
+    });
+
+    it("handles non-existent project gracefully", () => {
+      // Should not throw
+      expect(() => deleteProject("/nonexistent/path")).not.toThrow();
+    });
+  });
+
+  describe("deleteOrphanedProjects", () => {
+    it("deletes projects not in the valid paths set", () => {
+      const projects: ProjectInput[] = [
+        {
+          path: "/Users/test/project1",
+          name: "project1",
+          firstActivity: "2026-01-01T10:00:00.000Z",
+          lastActivity: "2026-01-15T15:00:00.000Z",
+          sessionCount: 5,
+          messageCount: 100,
+          totalTime: 3600000,
+        },
+        {
+          path: "/Users/test/project2",
+          name: "project2",
+          firstActivity: "2026-01-01T10:00:00.000Z",
+          lastActivity: "2026-01-15T15:00:00.000Z",
+          sessionCount: 5,
+          messageCount: 100,
+          totalTime: 3600000,
+        },
+        {
+          path: "/Users/test/project3",
+          name: "project3",
+          firstActivity: "2026-01-01T10:00:00.000Z",
+          lastActivity: "2026-01-15T15:00:00.000Z",
+          sessionCount: 5,
+          messageCount: 100,
+          totalTime: 3600000,
+        },
+      ];
+
+      projects.forEach((p) => upsertProject(p));
+
+      const validPaths = new Set(["/Users/test/project1", "/Users/test/project3"]);
+      const deletedCount = deleteOrphanedProjects(validPaths);
+
+      expect(deletedCount).toBe(1);
+      expect(getProjectByPath("/Users/test/project1")).not.toBeNull();
+      expect(getProjectByPath("/Users/test/project2")).toBeNull();
+      expect(getProjectByPath("/Users/test/project3")).not.toBeNull();
+    });
+
+    it("deletes hidden orphaned projects as well", () => {
+      const project: ProjectInput = {
+        path: "/Users/test/hidden-project",
+        name: "hidden-project",
+        firstActivity: "2026-01-01T10:00:00.000Z",
+        lastActivity: "2026-01-15T15:00:00.000Z",
+        sessionCount: 5,
+        messageCount: 100,
+        totalTime: 3600000,
+      };
+      upsertProject(project);
+      setProjectHidden(project.path, true);
+
+      const validPaths = new Set<string>();
+      const deletedCount = deleteOrphanedProjects(validPaths);
+
+      expect(deletedCount).toBe(1);
+      expect(getProjectByPath(project.path)).toBeNull();
+    });
+
+    it("returns 0 when all projects are valid", () => {
+      const project: ProjectInput = {
+        path: "/Users/test/project",
+        name: "project",
+        firstActivity: "2026-01-01T10:00:00.000Z",
+        lastActivity: "2026-01-15T15:00:00.000Z",
+        sessionCount: 5,
+        messageCount: 100,
+        totalTime: 3600000,
+      };
+      upsertProject(project);
+
+      const validPaths = new Set(["/Users/test/project"]);
+      const deletedCount = deleteOrphanedProjects(validPaths);
+
+      expect(deletedCount).toBe(0);
+    });
+  });
+
+  describe("Hidden projects", () => {
+    const testProject: ProjectInput = {
+      path: "/Users/test/project",
+      name: "project",
+      firstActivity: "2026-01-01T10:00:00.000Z",
+      lastActivity: "2026-01-15T15:00:00.000Z",
+      sessionCount: 5,
+      messageCount: 100,
+      totalTime: 3600000,
+    };
+
+    it("setProjectHidden hides a project", () => {
+      upsertProject(testProject);
+      setProjectHidden(testProject.path, true);
+
+      const project = getProjectByPath(testProject.path);
+      expect(project?.isHidden).toBe(true);
+    });
+
+    it("setProjectHidden unhides a project", () => {
+      upsertProject(testProject);
+      setProjectHidden(testProject.path, true);
+      setProjectHidden(testProject.path, false);
+
+      const project = getProjectByPath(testProject.path);
+      expect(project?.isHidden).toBe(false);
+    });
+
+    it("getAllProjects excludes hidden projects by default", () => {
+      const visibleProject: ProjectInput = {
+        ...testProject,
+        path: "/Users/test/visible",
+        name: "visible",
+      };
+      const hiddenProject: ProjectInput = {
+        ...testProject,
+        path: "/Users/test/hidden",
+        name: "hidden",
+      };
+
+      upsertProject(visibleProject);
+      upsertProject(hiddenProject);
+      setProjectHidden(hiddenProject.path, true);
+
+      const projects = getAllProjects();
+      expect(projects).toHaveLength(1);
+      expect(projects[0].path).toBe(visibleProject.path);
+    });
+
+    it("getAllProjects includes hidden projects when includeHidden is true", () => {
+      const visibleProject: ProjectInput = {
+        ...testProject,
+        path: "/Users/test/visible",
+        name: "visible",
+      };
+      const hiddenProject: ProjectInput = {
+        ...testProject,
+        path: "/Users/test/hidden",
+        name: "hidden",
+      };
+
+      upsertProject(visibleProject);
+      upsertProject(hiddenProject);
+      setProjectHidden(hiddenProject.path, true);
+
+      const projects = getAllProjects({ includeHidden: true });
+      expect(projects).toHaveLength(2);
+    });
+
+    it("getHiddenProjects returns only hidden projects", () => {
+      const visibleProject: ProjectInput = {
+        ...testProject,
+        path: "/Users/test/visible",
+        name: "visible",
+      };
+      const hiddenProject1: ProjectInput = {
+        ...testProject,
+        path: "/Users/test/hidden1",
+        name: "hidden1",
+      };
+      const hiddenProject2: ProjectInput = {
+        ...testProject,
+        path: "/Users/test/hidden2",
+        name: "hidden2",
+      };
+
+      upsertProject(visibleProject);
+      upsertProject(hiddenProject1);
+      upsertProject(hiddenProject2);
+      setProjectHidden(hiddenProject1.path, true);
+      setProjectHidden(hiddenProject2.path, true);
+
+      const hiddenProjects = getHiddenProjects();
+      expect(hiddenProjects).toHaveLength(2);
+      const paths = hiddenProjects.map((p) => p.path);
+      expect(paths).toContain(hiddenProject1.path);
+      expect(paths).toContain(hiddenProject2.path);
+      expect(paths).not.toContain(visibleProject.path);
+    });
+
+    it("getHiddenProjects returns empty array when no projects are hidden", () => {
+      upsertProject(testProject);
+
+      const hiddenProjects = getHiddenProjects();
+      expect(hiddenProjects).toHaveLength(0);
+    });
+  });
+
+  describe("Default project", () => {
+    const testProject: ProjectInput = {
+      path: "/Users/test/project",
+      name: "project",
+      firstActivity: "2026-01-01T10:00:00.000Z",
+      lastActivity: "2026-01-15T15:00:00.000Z",
+      sessionCount: 5,
+      messageCount: 100,
+      totalTime: 3600000,
+    };
+
+    it("setDefaultProject sets a project as default", () => {
+      upsertProject(testProject);
+      setDefaultProject(testProject.path);
+
+      const project = getProjectByPath(testProject.path);
+      expect(project?.isDefault).toBe(true);
+    });
+
+    it("setDefaultProject clears the previous default project", () => {
+      const project1: ProjectInput = {
+        ...testProject,
+        path: "/Users/test/project1",
+        name: "project1",
+      };
+      const project2: ProjectInput = {
+        ...testProject,
+        path: "/Users/test/project2",
+        name: "project2",
+      };
+
+      upsertProject(project1);
+      upsertProject(project2);
+
+      // Set first project as default
+      setDefaultProject(project1.path);
+      expect(getProjectByPath(project1.path)?.isDefault).toBe(true);
+      expect(getProjectByPath(project2.path)?.isDefault).toBe(false);
+
+      // Set second project as default - should clear the first
+      setDefaultProject(project2.path);
+      expect(getProjectByPath(project1.path)?.isDefault).toBe(false);
+      expect(getProjectByPath(project2.path)?.isDefault).toBe(true);
+    });
+
+    it("getDefaultProject returns the default project", () => {
+      upsertProject(testProject);
+      setDefaultProject(testProject.path);
+
+      const defaultProject = getDefaultProject();
+      expect(defaultProject).not.toBeNull();
+      expect(defaultProject?.path).toBe(testProject.path);
+      expect(defaultProject?.isDefault).toBe(true);
+    });
+
+    it("getDefaultProject returns null when no default is set", () => {
+      upsertProject(testProject);
+
+      const defaultProject = getDefaultProject();
+      expect(defaultProject).toBeNull();
+    });
+
+    it("clearDefaultProject clears the default project", () => {
+      upsertProject(testProject);
+      setDefaultProject(testProject.path);
+      expect(getDefaultProject()).not.toBeNull();
+
+      clearDefaultProject();
+      expect(getDefaultProject()).toBeNull();
+      expect(getProjectByPath(testProject.path)?.isDefault).toBe(false);
+    });
+
+    it("only one project can be default at a time", () => {
+      const projects: ProjectInput[] = [
+        { ...testProject, path: "/Users/test/p1", name: "p1" },
+        { ...testProject, path: "/Users/test/p2", name: "p2" },
+        { ...testProject, path: "/Users/test/p3", name: "p3" },
+      ];
+
+      projects.forEach((p) => upsertProject(p));
+      projects.forEach((p) => setDefaultProject(p.path));
+
+      const allProjects = getAllProjects({ includeHidden: true });
+      const defaultProjects = allProjects.filter((p) => p.isDefault);
+      expect(defaultProjects).toHaveLength(1);
+      expect(defaultProjects[0].path).toBe("/Users/test/p3"); // Last one set
+    });
+  });
+
+  describe("Project groups", () => {
+    it("createProjectGroup creates a new group with auto-incrementing sort order", () => {
+      const group1 = createProjectGroup({ name: "Group 1" });
+      const group2 = createProjectGroup({ name: "Group 2" });
+
+      expect(group1.name).toBe("Group 1");
+      expect(group1.sortOrder).toBe(0);
+      expect(group1.color).toBeNull();
+      expect(group1.id).toBeDefined();
+
+      expect(group2.name).toBe("Group 2");
+      expect(group2.sortOrder).toBe(1);
+    });
+
+    it("createProjectGroup accepts optional color", () => {
+      const group = createProjectGroup({ name: "Colored Group", color: "#FF5733" });
+
+      expect(group.color).toBe("#FF5733");
+    });
+
+    it("getAllProjectGroups returns groups ordered by sort order", () => {
+      createProjectGroup({ name: "Group A" });
+      createProjectGroup({ name: "Group B" });
+      createProjectGroup({ name: "Group C" });
+
+      const groups = getAllProjectGroups();
+      expect(groups).toHaveLength(3);
+      expect(groups[0].sortOrder).toBe(0);
+      expect(groups[1].sortOrder).toBe(1);
+      expect(groups[2].sortOrder).toBe(2);
+    });
+
+    it("getProjectGroupById returns the correct group", () => {
+      const created = createProjectGroup({ name: "Test Group", color: "#123456" });
+
+      const retrieved = getProjectGroupById(created.id);
+      expect(retrieved).not.toBeNull();
+      expect(retrieved?.name).toBe("Test Group");
+      expect(retrieved?.color).toBe("#123456");
+    });
+
+    it("getProjectGroupById returns null for non-existent group", () => {
+      const group = getProjectGroupById("non-existent-id");
+      expect(group).toBeNull();
+    });
+
+    it("updateProjectGroup updates name", () => {
+      const group = createProjectGroup({ name: "Original Name" });
+
+      const updated = updateProjectGroup(group.id, { name: "New Name" });
+      expect(updated?.name).toBe("New Name");
+    });
+
+    it("updateProjectGroup updates color", () => {
+      const group = createProjectGroup({ name: "Test", color: "#000000" });
+
+      const updated = updateProjectGroup(group.id, { color: "#FFFFFF" });
+      expect(updated?.color).toBe("#FFFFFF");
+    });
+
+    it("updateProjectGroup can set color to null", () => {
+      const group = createProjectGroup({ name: "Test", color: "#FF0000" });
+
+      const updated = updateProjectGroup(group.id, { color: null });
+      expect(updated?.color).toBeNull();
+    });
+
+    it("updateProjectGroup updates sort order", () => {
+      const group = createProjectGroup({ name: "Test" });
+
+      const updated = updateProjectGroup(group.id, { sortOrder: 99 });
+      expect(updated?.sortOrder).toBe(99);
+    });
+
+    it("updateProjectGroup returns null for non-existent group", () => {
+      const result = updateProjectGroup("non-existent-id", { name: "New Name" });
+      expect(result).toBeNull();
+    });
+
+    it("updateProjectGroup with no updates returns unchanged group", () => {
+      const group = createProjectGroup({ name: "Test", color: "#123" });
+
+      const unchanged = updateProjectGroup(group.id, {});
+      expect(unchanged?.name).toBe("Test");
+      expect(unchanged?.color).toBe("#123");
+    });
+
+    it("deleteProjectGroup removes the group", () => {
+      const group = createProjectGroup({ name: "To Delete" });
+      expect(getProjectGroupById(group.id)).not.toBeNull();
+
+      deleteProjectGroup(group.id);
+      expect(getProjectGroupById(group.id)).toBeNull();
+    });
+
+    it("deleteProjectGroup unassigns projects from the deleted group", () => {
+      // Create a group and assign projects to it
+      const group = createProjectGroup({ name: "Test Group" });
+
+      const project1: ProjectInput = {
+        path: "/Users/test/project1",
+        name: "project1",
+        firstActivity: "2026-01-01T10:00:00.000Z",
+        lastActivity: "2026-01-15T15:00:00.000Z",
+        sessionCount: 5,
+        messageCount: 100,
+        totalTime: 3600000,
+      };
+      const project2: ProjectInput = {
+        path: "/Users/test/project2",
+        name: "project2",
+        firstActivity: "2026-01-01T10:00:00.000Z",
+        lastActivity: "2026-01-15T15:00:00.000Z",
+        sessionCount: 3,
+        messageCount: 50,
+        totalTime: 1800000,
+      };
+
+      upsertProject(project1);
+      upsertProject(project2);
+      setProjectGroup(project1.path, group.id);
+      setProjectGroup(project2.path, group.id);
+
+      // Verify projects are assigned
+      expect(getProjectByPath(project1.path)?.groupId).toBe(group.id);
+      expect(getProjectByPath(project2.path)?.groupId).toBe(group.id);
+
+      // Delete the group
+      deleteProjectGroup(group.id);
+
+      // Verify projects have null groupId
+      expect(getProjectByPath(project1.path)?.groupId).toBeNull();
+      expect(getProjectByPath(project2.path)?.groupId).toBeNull();
+    });
+  });
+
+  describe("setProjectGroup", () => {
+    const testProject: ProjectInput = {
+      path: "/Users/test/project",
+      name: "project",
+      firstActivity: "2026-01-01T10:00:00.000Z",
+      lastActivity: "2026-01-15T15:00:00.000Z",
+      sessionCount: 5,
+      messageCount: 100,
+      totalTime: 3600000,
+    };
+
+    it("assigns a project to a group", () => {
+      upsertProject(testProject);
+      const group = createProjectGroup({ name: "Test Group" });
+
+      setProjectGroup(testProject.path, group.id);
+
+      const project = getProjectByPath(testProject.path);
+      expect(project?.groupId).toBe(group.id);
+    });
+
+    it("moves a project from one group to another", () => {
+      upsertProject(testProject);
+      const group1 = createProjectGroup({ name: "Group 1" });
+      const group2 = createProjectGroup({ name: "Group 2" });
+
+      setProjectGroup(testProject.path, group1.id);
+      expect(getProjectByPath(testProject.path)?.groupId).toBe(group1.id);
+
+      setProjectGroup(testProject.path, group2.id);
+      expect(getProjectByPath(testProject.path)?.groupId).toBe(group2.id);
+    });
+
+    it("unassigns a project from a group by setting null", () => {
+      upsertProject(testProject);
+      const group = createProjectGroup({ name: "Test Group" });
+
+      setProjectGroup(testProject.path, group.id);
+      expect(getProjectByPath(testProject.path)?.groupId).toBe(group.id);
+
+      setProjectGroup(testProject.path, null);
+      expect(getProjectByPath(testProject.path)?.groupId).toBeNull();
+    });
+
+    it("multiple projects can be in the same group", () => {
+      const project1: ProjectInput = {
+        ...testProject,
+        path: "/Users/test/project1",
+        name: "project1",
+      };
+      const project2: ProjectInput = {
+        ...testProject,
+        path: "/Users/test/project2",
+        name: "project2",
+      };
+
+      upsertProject(project1);
+      upsertProject(project2);
+      const group = createProjectGroup({ name: "Shared Group" });
+
+      setProjectGroup(project1.path, group.id);
+      setProjectGroup(project2.path, group.id);
+
+      expect(getProjectByPath(project1.path)?.groupId).toBe(group.id);
+      expect(getProjectByPath(project2.path)?.groupId).toBe(group.id);
+    });
+  });
+
+  describe("Combined project management scenarios", () => {
+    const baseProject: ProjectInput = {
+      path: "/Users/test/base",
+      name: "base",
+      firstActivity: "2026-01-01T10:00:00.000Z",
+      lastActivity: "2026-01-15T15:00:00.000Z",
+      sessionCount: 5,
+      messageCount: 100,
+      totalTime: 3600000,
+    };
+
+    it("hidden default project is still returned by getDefaultProject", () => {
+      upsertProject(baseProject);
+      setDefaultProject(baseProject.path);
+      setProjectHidden(baseProject.path, true);
+
+      const defaultProject = getDefaultProject();
+      expect(defaultProject).not.toBeNull();
+      expect(defaultProject?.isHidden).toBe(true);
+      expect(defaultProject?.isDefault).toBe(true);
+    });
+
+    it("deleting default project clears default status", () => {
+      upsertProject(baseProject);
+      setDefaultProject(baseProject.path);
+      expect(getDefaultProject()).not.toBeNull();
+
+      deleteProject(baseProject.path);
+
+      expect(getDefaultProject()).toBeNull();
+    });
+
+    it("project retains group assignment after being hidden and unhidden", () => {
+      upsertProject(baseProject);
+      const group = createProjectGroup({ name: "Persistent Group" });
+
+      setProjectGroup(baseProject.path, group.id);
+      setProjectHidden(baseProject.path, true);
+      setProjectHidden(baseProject.path, false);
+
+      expect(getProjectByPath(baseProject.path)?.groupId).toBe(group.id);
+    });
+
+    it("clearDatabase also removes project groups", () => {
+      createProjectGroup({ name: "Group 1" });
+      createProjectGroup({ name: "Group 2" });
+      expect(getAllProjectGroups()).toHaveLength(2);
+
+      clearDatabase();
+
+      expect(getAllProjectGroups()).toHaveLength(0);
     });
   });
 });
