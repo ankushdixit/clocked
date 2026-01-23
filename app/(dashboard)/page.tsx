@@ -1,109 +1,99 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { format, endOfMonth, differenceInDays } from "date-fns";
-import { Loader2 } from "lucide-react";
-import { UsageMeter } from "@/components/dashboard/UsageMeter";
-import { MetricsGrid } from "@/components/dashboard/MetricsGrid";
-import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
-import { TopProjects } from "@/components/dashboard/TopProjects";
-import { calculateUsagePercentage } from "@/lib/calculators/usage-calculator";
-import type { MonthlySummary, MonthlySummaryResponse } from "@/types/electron";
+/**
+ * Dashboard Page - Main Usage Dashboard
+ *
+ * Features:
+ * - Hero metrics with responsive sparklines
+ * - Today vs Daily Average + Claude Max Limits
+ * - Activity patterns row (heatmap, hourly, cost trend)
+ * - Top Projects + Time Distribution + Human:AI trend
+ * - Quick Stats
+ */
 
-interface DashboardState {
-  summary: MonthlySummary | null;
-  loading: boolean;
-  error: string | null;
-}
-
-function useMonthlySummary(): DashboardState {
-  const [state, setState] = useState<DashboardState>({
-    summary: null,
-    loading: true,
-    error: null,
-  });
-
-  useEffect(() => {
-    async function fetchMonthlySummary() {
-      if (typeof window !== "undefined" && window.electron) {
-        try {
-          const currentMonth = format(new Date(), "yyyy-MM");
-          const response = (await window.electron.analytics.getMonthlySummary(
-            currentMonth
-          )) as MonthlySummaryResponse;
-
-          if (response.error) {
-            setState({ summary: null, loading: false, error: response.error });
-          } else {
-            setState({ summary: response.summary ?? null, loading: false, error: null });
-          }
-        } catch (err) {
-          const error = err instanceof Error ? err.message : "Failed to load data";
-          setState({ summary: null, loading: false, error });
-        }
-      } else {
-        // Not running in Electron - show placeholder state
-        setState({
-          summary: null,
-          loading: false,
-          error: "Running in browser mode - connect via Electron for live data",
-        });
-      }
-    }
-
-    fetchMonthlySummary();
-  }, []);
-
-  return state;
-}
+import { format } from "date-fns";
+import { Calendar } from "lucide-react";
+import { mockSummary } from "@/lib/mockData";
+import {
+  ActivityHeatmap,
+  HeroMetricsRow,
+  TodayVsAverageCard,
+  ClaudeMaxLimitsCard,
+  QuickStatsCard,
+  HourlyDistributionCard,
+  CumulativeCostCard,
+  TopProjectsCard,
+  TimeDistributionCard,
+  HumanAIRatioCard,
+} from "@/components/dashboard";
 
 export default function DashboardPage() {
-  const { summary, loading, error } = useMonthlySummary();
-
-  const currentDate = new Date();
-  const monthHeader = format(currentDate, "MMMM yyyy").toUpperCase();
-  const daysRemaining = differenceInDays(endOfMonth(currentDate), currentDate);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (error || !summary) {
-    return (
-      <div className="space-y-6">
-        <header>
-          <h1 className="text-2xl font-bold tracking-tight">{monthHeader} USAGE</h1>
-        </header>
-        <div className="rounded-lg border bg-card p-6 text-center">
-          <p className="text-muted-foreground">
-            {error || "No usage data available for this month"}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const usagePercentage = calculateUsagePercentage(summary.estimatedApiCost);
+  const currentMonth = format(new Date(), "MMMM yyyy");
 
   return (
     <div className="space-y-6">
-      {/* Header with month and usage meter */}
-      <header className="space-y-3">
-        <h1 className="text-2xl font-bold tracking-tight">{monthHeader} USAGE</h1>
-        <UsageMeter percentage={usagePercentage} daysRemaining={daysRemaining} />
-      </header>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Calendar className="w-4 h-4" />
+          <span>{currentMonth}</span>
+        </div>
+      </div>
 
-      {/* Metrics Grid - 6 cards */}
-      <MetricsGrid summary={summary} />
+      {/* Section 1: Hero Metrics
+          - xl+: 4 columns (1×4)
+          - lg-xl: 4 columns with shorter text
+          - md-lg: 2×2 grid
+          - <md: 2×2 grid */}
+      <HeroMetricsRow />
 
-      {/* Activity heatmap and Top Projects side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ActivityHeatmap dailyActivity={summary.dailyActivity} month={currentDate} />
-        <TopProjects projects={summary.topProjects} />
+      {/* Section 2+3 Combined: Today, Claude, Quick Stats, Activity, Session, Cumulative
+          - xl+: Row 1: Today, Claude, Quick Stats | Row 2: Activity, Session, Cumulative (6-col grid)
+          - lg-xl: 2 equal columns
+          - 936px-lg: 5-col grid with ratios - Row 1: 2:3 | Row 2: 3:2 | Row 3: 2:3
+          - <936px: Today, Claude, Session, Cumulative full width; Quick Stats + Activity paired 3:2 */}
+      <div className="grid grid-cols-5 lg:grid-cols-2 xl:grid-cols-6 gap-4">
+        {/* Today - full width below 936px, 2:3 split at 936px-lg */}
+        <div className="order-1 col-span-5 min-[936px]:col-span-2 lg:col-span-1 xl:col-span-2 [&>*]:h-full">
+          <TodayVsAverageCard />
+        </div>
+        {/* Claude - full width below 936px, 2:3 split at 936px-lg */}
+        <div className="order-2 col-span-5 min-[936px]:col-span-3 lg:col-span-1 xl:col-span-2 [&>*]:h-full">
+          <ClaudeMaxLimitsCard />
+        </div>
+        {/* Quick Stats - full width below 640px, 3:2 split (3/5) at 640px-lg */}
+        <div className="order-3 col-span-5 sm:col-span-3 lg:col-span-1 xl:col-span-2 [&>*]:h-full">
+          <QuickStatsCard />
+        </div>
+        {/* Activity - full width below 640px, 3:2 split (2/5) at 640px-lg */}
+        <div className="order-4 col-span-5 sm:col-span-2 lg:col-span-1 xl:col-span-1 [&>*]:h-full">
+          <ActivityHeatmap dailyActivity={mockSummary.dailyActivity} month={new Date()} />
+        </div>
+        {/* Session Distribution - full width below 936px, 2:3 split at 936px-lg */}
+        <div className="order-5 col-span-5 min-[936px]:col-span-2 lg:col-span-1 xl:col-span-2 [&>*]:h-full">
+          <HourlyDistributionCard />
+        </div>
+        {/* Cumulative Cost - full width below 936px, 2:3 split at 936px-lg */}
+        <div className="order-6 col-span-5 min-[936px]:col-span-3 lg:col-span-1 xl:col-span-3 [&>*]:h-full">
+          <CumulativeCostCard />
+        </div>
+      </div>
+
+      {/* Section 4: Projects & Time Insights
+          - xl+: 5-3-7 columns ratio (Top Projects, Time Distribution, Human:AI)
+          - 936px-xl: 2+1 (TopProjects+Time on row 1, Human:AI on row 2)
+          - <936px: stacked (3×1) */}
+      <div className="grid grid-cols-1 min-[936px]:grid-cols-2 xl:grid-cols-[5fr_3fr_7fr] gap-4">
+        <div className="col-span-1">
+          <TopProjectsCard />
+        </div>
+        <div className="col-span-1 [&>*]:h-full">
+          <TimeDistributionCard />
+        </div>
+        <div className="min-[936px]:col-span-2 xl:col-span-1 [&>*]:h-full">
+          <HumanAIRatioCard />
+        </div>
       </div>
     </div>
   );

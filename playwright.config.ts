@@ -36,7 +36,17 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
 
-    // Only run additional browsers in CI for faster local testing
+    /* Test against mobile viewports - always available */
+    {
+      name: "Mobile Chrome",
+      use: { ...devices["Pixel 5"] },
+    },
+    {
+      name: "Mobile Safari",
+      use: { ...devices["iPhone 12"] },
+    },
+
+    // Only run additional desktop browsers in CI for faster local testing
     ...(process.env.CI
       ? [
           {
@@ -47,16 +57,6 @@ export default defineConfig({
           {
             name: "webkit",
             use: { ...devices["Desktop Safari"] },
-          },
-
-          /* Test against mobile viewports. */
-          {
-            name: "Mobile Chrome",
-            use: { ...devices["Pixel 5"] },
-          },
-          {
-            name: "Mobile Safari",
-            use: { ...devices["iPhone 12"] },
           },
         ]
       : []),

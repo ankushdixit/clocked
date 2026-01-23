@@ -7,21 +7,22 @@ import AxeBuilder from "@axe-core/playwright";
  */
 
 test.describe("Dashboard Page", () => {
-  test("should display monthly usage heading", async ({ page }) => {
+  test("should display dashboard heading", async ({ page }) => {
     await page.goto("/");
 
-    // Check that monthly usage heading is visible (format: "MONTH YEAR USAGE")
+    // Check that dashboard heading is visible
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("USAGE");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Dashboard");
   });
 
-  test("should display metrics cards in browser mode", async ({ page }) => {
+  test("should display hero metrics cards", async ({ page }) => {
     await page.goto("/");
 
-    // In browser mode, should show error message since Electron is not available
-    await expect(
-      page.getByText("Running in browser mode - connect via Electron for live data")
-    ).toBeVisible();
+    // Check that hero metric cards are visible by looking for their values
+    await expect(page.getByText("349")).toBeVisible(); // Sessions count
+    await expect(page.getByText("844h 18m")).toBeVisible(); // Session Time
+    await expect(page.getByText("$2,532.92")).toBeVisible(); // API Cost
+    await expect(page.getByText("25.33x")).toBeVisible(); // Value multiplier
   });
 
   test("should display sidebar navigation", async ({ page }, testInfo) => {
@@ -34,20 +35,6 @@ test.describe("Dashboard Page", () => {
     await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Projects" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
-  });
-
-  test.skip("should have accessible search functionality", async ({ page }) => {
-    // TODO: Re-enable when search is added to the frameless window UI
-    await page.goto("/");
-
-    // Find search input by aria-label
-    const searchInput = page.getByLabel("Search");
-    await expect(searchInput).toBeVisible();
-
-    // Test search input is focusable
-    await searchInput.focus();
-    await searchInput.fill("test query");
-    await expect(searchInput).toHaveValue("test query");
   });
 
   test("should pass accessibility checks @a11y", async ({ page }) => {

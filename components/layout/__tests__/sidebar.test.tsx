@@ -93,7 +93,7 @@ describe("Sidebar Component", () => {
   it("has proper sidebar width", () => {
     const { container } = render(<Sidebar />);
     const aside = container.querySelector("aside");
-    expect(aside).toHaveClass("w-64");
+    expect(aside).toHaveClass("w-52");
   });
 
   it("has border on the right", () => {

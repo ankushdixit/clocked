@@ -5,6 +5,7 @@ import { eachDayOfInterval, startOfMonth, endOfMonth, format, getDay, isSameDay 
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/formatters/time";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Activity } from "lucide-react";
 import type { DailyActivity } from "@/types/electron";
 
 export interface ActivityHeatmapProps {
@@ -130,28 +131,39 @@ export function ActivityHeatmap({ dailyActivity, month = new Date() }: ActivityH
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">Activity</CardTitle>
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <Activity className="w-4 h-4 flex-shrink-0" />
+          <span className="truncate">Activity</span>
+        </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="relative">
-          {/* Day labels */}
-          <div className="flex gap-1 mb-1">
+      <CardContent className="flex justify-center @container px-1">
+        <div className="relative inline-flex flex-col">
+          {/* Day labels - width responsive to container, height fixed */}
+          <div className="flex gap-0.5 @[200px]:gap-1 mb-1">
             {dayNames.map((name) => (
-              <div key={name} className="w-6 h-4 text-[10px] text-muted-foreground text-center">
+              <div
+                key={name}
+                className="w-4 @[180px]:w-5 @[220px]:w-6 h-4 text-[10px] text-muted-foreground text-center"
+              >
                 {name[0]}
               </div>
             ))}
           </div>
 
-          {/* Weeks grid */}
+          {/* Weeks grid - width responsive to container, height fixed */}
           <div className="space-y-1">
             {weeks.map((week, weekIndex) => (
-              <div key={weekIndex} className="flex gap-1">
+              <div key={weekIndex} className="flex gap-0.5 @[200px]:gap-1">
                 {week.map((day, dayIndex) => {
                   if (!day) {
-                    return <div key={`empty-${dayIndex}`} className="w-6 h-6" />;
+                    return (
+                      <div
+                        key={`empty-${dayIndex}`}
+                        className="w-4 @[180px]:w-5 @[220px]:w-6 h-6"
+                      />
+                    );
                   }
 
                   const dateStr = format(day, "yyyy-MM-dd");
@@ -163,7 +175,7 @@ export function ActivityHeatmap({ dailyActivity, month = new Date() }: ActivityH
                     <div
                       key={dateStr}
                       className={cn(
-                        "w-6 h-6 rounded-sm cursor-pointer transition-colors",
+                        "w-4 @[180px]:w-5 @[220px]:w-6 h-6 rounded-sm cursor-pointer transition-colors",
                         getIntensityLevel(sessionCount, maxSessionCount),
                         isToday && "ring-1 ring-foreground ring-offset-1 ring-offset-background"
                       )}
@@ -176,12 +188,14 @@ export function ActivityHeatmap({ dailyActivity, month = new Date() }: ActivityH
             ))}
           </div>
 
-          {/* Legend */}
-          <div className="flex items-center gap-2 mt-4 text-xs text-muted-foreground">
+          {/* Legend - aligned with grid width */}
+          <div className="flex items-center justify-between mt-4 text-[10px] text-muted-foreground">
             <span>Less</span>
-            {INTENSITY_LEVELS.map((level, i) => (
-              <div key={i} className={cn("w-3 h-3 rounded-sm", level)} />
-            ))}
+            <div className="flex items-center gap-0.5">
+              {INTENSITY_LEVELS.map((level, i) => (
+                <div key={i} className={cn("w-2 h-2 rounded-sm flex-shrink-0", level)} />
+              ))}
+            </div>
             <span>More</span>
           </div>
 

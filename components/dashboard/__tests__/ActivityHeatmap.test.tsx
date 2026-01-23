@@ -38,7 +38,7 @@ describe("ActivityHeatmap Component", () => {
       <ActivityHeatmap dailyActivity={mockActivity} month={fixedMonth} />
     );
     // Should have 31 day cells for January plus potential empty padding cells
-    const dayCells = container.querySelectorAll(".w-6.h-6.rounded-sm");
+    const dayCells = container.querySelectorAll(".w-4.h-6.rounded-sm");
     expect(dayCells.length).toBeGreaterThanOrEqual(31);
   });
 
@@ -46,7 +46,7 @@ describe("ActivityHeatmap Component", () => {
     const { container } = render(
       <ActivityHeatmap dailyActivity={mockActivity} month={fixedMonth} />
     );
-    const dayCells = container.querySelectorAll(".w-6.h-6.rounded-sm.cursor-pointer");
+    const dayCells = container.querySelectorAll(".w-4.h-6.rounded-sm.cursor-pointer");
 
     // Find a cell and hover over it
     if (dayCells.length > 0) {
@@ -60,7 +60,7 @@ describe("ActivityHeatmap Component", () => {
     const { container } = render(
       <ActivityHeatmap dailyActivity={mockActivity} month={fixedMonth} />
     );
-    const dayCells = container.querySelectorAll(".w-6.h-6.rounded-sm.cursor-pointer");
+    const dayCells = container.querySelectorAll(".w-4.h-6.rounded-sm.cursor-pointer");
 
     if (dayCells.length > 0) {
       fireEvent.mouseEnter(dayCells[0]);
@@ -90,7 +90,7 @@ describe("ActivityHeatmap Component", () => {
     const { container } = render(
       <ActivityHeatmap dailyActivity={mockActivity} month={fixedMonth} />
     );
-    const dayCells = container.querySelectorAll(".w-6.h-6.rounded-sm.cursor-pointer");
+    const dayCells = container.querySelectorAll(".w-4.h-6.rounded-sm.cursor-pointer");
 
     if (dayCells.length > 0) {
       // Hover over a cell
