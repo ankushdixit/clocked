@@ -24,7 +24,10 @@ test.describe("Dashboard Page", () => {
     ).toBeVisible();
   });
 
-  test("should display sidebar navigation", async ({ page }) => {
+  test("should display sidebar navigation", async ({ page }, testInfo) => {
+    // Skip on mobile - sidebar is hidden on mobile viewports by design
+    test.skip(testInfo.project.name.includes("Mobile"), "Sidebar hidden on mobile");
+
     await page.goto("/");
 
     // Check that sidebar navigation links are visible
