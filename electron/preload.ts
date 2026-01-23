@@ -19,6 +19,9 @@ const ALLOWED_CHANNELS = [
   "projects:setGroup",
   "projects:setDefault",
   "projects:getDefault",
+  "projects:merge",
+  "projects:unmerge",
+  "projects:getMergedProjects",
   // Project group channels
   "groups:getAll",
   "groups:create",
@@ -66,6 +69,11 @@ contextBridge.exposeInMainWorld("electron", {
     setDefault: (path: string): Promise<unknown> =>
       ipcRenderer.invoke("projects:setDefault", { path }),
     getDefault: (): Promise<unknown> => ipcRenderer.invoke("projects:getDefault"),
+    merge: (sourcePaths: string[], targetPath: string): Promise<unknown> =>
+      ipcRenderer.invoke("projects:merge", { sourcePaths, targetPath }),
+    unmerge: (path: string): Promise<unknown> => ipcRenderer.invoke("projects:unmerge", { path }),
+    getMergedProjects: (primaryPath: string): Promise<unknown> =>
+      ipcRenderer.invoke("projects:getMergedProjects", { primaryPath }),
   },
 
   // Project Groups API

@@ -24,6 +24,7 @@ export interface Project {
   isHidden: boolean; // Whether the project is hidden from the main list
   groupId: string | null; // Foreign key to project_groups
   isDefault: boolean; // Whether this is the default project shown on dashboard
+  mergedInto: string | null; // Path of primary project if merged, null if standalone/primary
 }
 
 /**
@@ -88,11 +89,12 @@ let db: Database.Database | null = null;
  * This adds new columns that may not exist in older database versions
  */
 function runMigrations(database: Database.Database): void {
-  // Check if is_hidden column exists on projects table
+  // Check which columns exist on projects table
   const projectColumns = database.prepare("PRAGMA table_info(projects)").all() as {
     name: string;
   }[];
   const hasIsHidden = projectColumns.some((col) => col.name === "is_hidden");
+  const hasMergedInto = projectColumns.some((col) => col.name === "merged_into");
 
   if (!hasIsHidden) {
     // Add new columns to projects table
@@ -105,6 +107,16 @@ function runMigrations(database: Database.Database): void {
     // Create index for group_id
     database.exec("CREATE INDEX IF NOT EXISTS idx_projects_group ON projects(group_id);");
   }
+
+  // Migration for merged_into column (project merge feature)
+  if (!hasMergedInto) {
+    database.exec(`
+      ALTER TABLE projects ADD COLUMN merged_into TEXT DEFAULT NULL;
+    `);
+  }
+
+  // Always ensure index exists (safe to run even if index already exists)
+  database.exec("CREATE INDEX IF NOT EXISTS idx_projects_merged_into ON projects(merged_into);");
 }
 
 /**
@@ -169,7 +181,8 @@ export function initializeDatabase(): Database.Database {
       total_time INTEGER DEFAULT 0,
       is_hidden INTEGER DEFAULT 0,
       group_id TEXT DEFAULT NULL REFERENCES project_groups(id) ON DELETE SET NULL,
-      is_default INTEGER DEFAULT 0
+      is_default INTEGER DEFAULT 0,
+      merged_into TEXT DEFAULT NULL
     );
 
     CREATE TABLE IF NOT EXISTS sessions (
@@ -278,7 +291,8 @@ export function getAllProjects(options: GetProjectsOptions = {}): Project[] {
       total_time as totalTime,
       is_hidden as isHidden,
       group_id as groupId,
-      is_default as isDefault
+      is_default as isDefault,
+      merged_into as mergedInto
     FROM projects
     ${whereClause}
     ORDER BY last_activity DESC
@@ -313,7 +327,8 @@ export function getProjectByPath(path: string): Project | null {
       total_time as totalTime,
       is_hidden as isHidden,
       group_id as groupId,
-      is_default as isDefault
+      is_default as isDefault,
+      merged_into as mergedInto
     FROM projects
     WHERE path = ?
   `);
@@ -338,12 +353,18 @@ export function deleteAllProjects(): void {
 
 /**
  * Delete a project by path
+ * Also deletes all sessions for this project to maintain referential integrity
  * @param path - Project path to delete
  */
 export function deleteProject(path: string): void {
   const db = getDatabase();
-  const stmt = db.prepare("DELETE FROM projects WHERE path = ?");
-  stmt.run(path);
+  const transaction = db.transaction(() => {
+    // Delete sessions first (foreign key constraint)
+    db.prepare("DELETE FROM sessions WHERE project_path = ?").run(path);
+    // Then delete the project
+    db.prepare("DELETE FROM projects WHERE path = ?").run(path);
+  });
+  transaction();
 }
 
 /**
@@ -672,7 +693,8 @@ export function getDefaultProject(): Project | null {
       total_time as totalTime,
       is_hidden as isHidden,
       group_id as groupId,
-      is_default as isDefault
+      is_default as isDefault,
+      merged_into as mergedInto
     FROM projects
     WHERE is_default = 1
   `);
@@ -704,12 +726,96 @@ export function getHiddenProjects(): Project[] {
       total_time as totalTime,
       is_hidden as isHidden,
       group_id as groupId,
-      is_default as isDefault
+      is_default as isDefault,
+      merged_into as mergedInto
     FROM projects
     WHERE is_hidden = 1
     ORDER BY last_activity DESC
   `);
   const projects = stmt.all() as Array<
+    Omit<Project, "isHidden" | "isDefault"> & { isHidden: number; isDefault: number }
+  >;
+  return projects.map((p) => ({
+    ...p,
+    isHidden: p.isHidden === 1,
+    isDefault: p.isDefault === 1,
+  }));
+}
+
+// ============================================================================
+// Project Merge Queries
+// ============================================================================
+
+/**
+ * Merge source projects into a target (primary) project
+ * Sets merged_into on all source projects to point to the target
+ * @param sourcePaths - Array of project paths to merge
+ * @param targetPath - Path of the primary project
+ * @throws Error if target project doesn't exist
+ */
+export function mergeProjects(sourcePaths: string[], targetPath: string): void {
+  const db = getDatabase();
+
+  // Validate target exists
+  const target = getProjectByPath(targetPath);
+  if (!target) {
+    throw new Error(`Target project "${targetPath}" not found`);
+  }
+
+  // Validate target is not already merged into another project
+  if (target.mergedInto !== null) {
+    throw new Error(`Target project "${targetPath}" is already merged into another project`);
+  }
+
+  const transaction = db.transaction(() => {
+    const stmt = db.prepare("UPDATE projects SET merged_into = ? WHERE path = ?");
+    for (const sourcePath of sourcePaths) {
+      // Don't merge a project into itself
+      if (sourcePath !== targetPath) {
+        stmt.run(targetPath, sourcePath);
+      }
+    }
+  });
+
+  transaction();
+}
+
+/**
+ * Unmerge a project (restore to standalone)
+ * Clears the merged_into field
+ * @param path - Path of the project to unmerge
+ */
+export function unmergeProject(path: string): void {
+  const db = getDatabase();
+  const stmt = db.prepare("UPDATE projects SET merged_into = NULL WHERE path = ?");
+  stmt.run(path);
+}
+
+/**
+ * Get all projects merged into a primary project
+ * @param primaryPath - Path of the primary project
+ * @returns Array of projects with merged_into = primaryPath
+ */
+export function getMergedProjects(primaryPath: string): Project[] {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT
+      path,
+      name,
+      first_activity as firstActivity,
+      last_activity as lastActivity,
+      session_count as sessionCount,
+      message_count as messageCount,
+      total_time as totalTime,
+      is_hidden as isHidden,
+      group_id as groupId,
+      is_default as isDefault,
+      merged_into as mergedInto
+    FROM projects
+    WHERE merged_into = ?
+    ORDER BY last_activity DESC
+  `);
+  const projects = stmt.all(primaryPath) as Array<
     Omit<Project, "isHidden" | "isDefault"> & { isHidden: number; isDefault: number }
   >;
   return projects.map((p) => ({

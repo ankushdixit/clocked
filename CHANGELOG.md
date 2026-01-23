@@ -23,12 +23,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Project Merge Backend**: Complete backend implementation for merging duplicate projects
+  - Database schema: `merged_into` column on projects table with index
+  - Database functions: `mergeProjects()`, `unmergeProject()`, `getMergedProjects()`
+  - IPC handlers: `projects:merge`, `projects:unmerge`, `projects:getMergedProjects`
+  - Preload bridge methods for renderer-to-main communication
+  - Idempotent migration for existing databases
+  - 22 new tests for merge operations
+  - Fixed foreign key constraint error in `deleteProject()` by deleting sessions first
+
 - **Project Merge UI**: Frontend interface for merging duplicate projects
   - Multi-select mode with colored checkboxes matching group colors
   - Merge dialog for selecting primary project
   - Merged projects badge showing count on primary project
   - Unmerge option in project action menu
-  - Note: Backend implementation pending (see `feature_project_merge_backend_implemen` work item)
 
 - **Comprehensive Test Coverage**: 211 tests for project components
   - `ProjectRow.test.tsx` - 30 tests for row rendering and interactions
