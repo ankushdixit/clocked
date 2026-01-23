@@ -45,6 +45,9 @@ import {
   getProjectGroupById,
   updateProjectGroup,
   deleteProjectGroup,
+  mergeProjects,
+  unmergeProject,
+  getMergedProjects,
   ProjectInput,
   SessionInput,
 } from "../database";
@@ -1081,6 +1084,227 @@ describe("database", () => {
       clearDatabase();
 
       expect(getAllProjectGroups()).toHaveLength(0);
+    });
+  });
+
+  describe("Project merge operations", () => {
+    const primaryProject: ProjectInput = {
+      path: "/Users/test/primary",
+      name: "primary",
+      firstActivity: "2026-01-01T10:00:00.000Z",
+      lastActivity: "2026-01-20T15:00:00.000Z",
+      sessionCount: 10,
+      messageCount: 200,
+      totalTime: 7200000,
+    };
+
+    const sourceProject1: ProjectInput = {
+      path: "/Users/test/source1",
+      name: "source1",
+      firstActivity: "2026-01-05T10:00:00.000Z",
+      lastActivity: "2026-01-15T15:00:00.000Z",
+      sessionCount: 5,
+      messageCount: 100,
+      totalTime: 3600000,
+    };
+
+    const sourceProject2: ProjectInput = {
+      path: "/Users/test/source2",
+      name: "source2",
+      firstActivity: "2026-01-08T10:00:00.000Z",
+      lastActivity: "2026-01-18T15:00:00.000Z",
+      sessionCount: 3,
+      messageCount: 50,
+      totalTime: 1800000,
+    };
+
+    beforeEach(() => {
+      upsertProject(primaryProject);
+      upsertProject(sourceProject1);
+      upsertProject(sourceProject2);
+    });
+
+    describe("mergeProjects", () => {
+      it("sets merged_into on source projects", () => {
+        mergeProjects([sourceProject1.path, sourceProject2.path], primaryProject.path);
+
+        const source1 = getProjectByPath(sourceProject1.path);
+        const source2 = getProjectByPath(sourceProject2.path);
+
+        expect(source1?.mergedInto).toBe(primaryProject.path);
+        expect(source2?.mergedInto).toBe(primaryProject.path);
+      });
+
+      it("does not set merged_into on the primary project", () => {
+        mergeProjects([sourceProject1.path, sourceProject2.path], primaryProject.path);
+
+        const primary = getProjectByPath(primaryProject.path);
+        expect(primary?.mergedInto).toBeNull();
+      });
+
+      it("handles single source project", () => {
+        mergeProjects([sourceProject1.path], primaryProject.path);
+
+        const source1 = getProjectByPath(sourceProject1.path);
+        expect(source1?.mergedInto).toBe(primaryProject.path);
+      });
+
+      it("ignores if source path is same as target path", () => {
+        mergeProjects([primaryProject.path, sourceProject1.path], primaryProject.path);
+
+        const primary = getProjectByPath(primaryProject.path);
+        const source1 = getProjectByPath(sourceProject1.path);
+
+        expect(primary?.mergedInto).toBeNull();
+        expect(source1?.mergedInto).toBe(primaryProject.path);
+      });
+
+      it("throws error if target project does not exist", () => {
+        expect(() => {
+          mergeProjects([sourceProject1.path], "/nonexistent/path");
+        }).toThrow('Target project "/nonexistent/path" not found');
+      });
+
+      it("throws error if target is already merged into another project", () => {
+        // First merge source1 into primary
+        mergeProjects([sourceProject1.path], primaryProject.path);
+
+        // Now try to use source1 (which is merged) as a target
+        expect(() => {
+          mergeProjects([sourceProject2.path], sourceProject1.path);
+        }).toThrow('Target project "/Users/test/source1" is already merged into another project');
+      });
+
+      it("handles empty source array gracefully", () => {
+        expect(() => {
+          mergeProjects([], primaryProject.path);
+        }).not.toThrow();
+
+        const primary = getProjectByPath(primaryProject.path);
+        expect(primary?.mergedInto).toBeNull();
+      });
+    });
+
+    describe("unmergeProject", () => {
+      it("clears merged_into field", () => {
+        mergeProjects([sourceProject1.path], primaryProject.path);
+        expect(getProjectByPath(sourceProject1.path)?.mergedInto).toBe(primaryProject.path);
+
+        unmergeProject(sourceProject1.path);
+        expect(getProjectByPath(sourceProject1.path)?.mergedInto).toBeNull();
+      });
+
+      it("does not affect other merged projects", () => {
+        mergeProjects([sourceProject1.path, sourceProject2.path], primaryProject.path);
+
+        unmergeProject(sourceProject1.path);
+
+        expect(getProjectByPath(sourceProject1.path)?.mergedInto).toBeNull();
+        expect(getProjectByPath(sourceProject2.path)?.mergedInto).toBe(primaryProject.path);
+      });
+
+      it("handles unmerging a project that is not merged", () => {
+        expect(() => {
+          unmergeProject(sourceProject1.path);
+        }).not.toThrow();
+
+        expect(getProjectByPath(sourceProject1.path)?.mergedInto).toBeNull();
+      });
+
+      it("handles unmerging non-existent project gracefully", () => {
+        expect(() => {
+          unmergeProject("/nonexistent/path");
+        }).not.toThrow();
+      });
+    });
+
+    describe("getMergedProjects", () => {
+      it("returns all projects merged into a primary", () => {
+        mergeProjects([sourceProject1.path, sourceProject2.path], primaryProject.path);
+
+        const merged = getMergedProjects(primaryProject.path);
+
+        expect(merged).toHaveLength(2);
+        const paths = merged.map((p) => p.path);
+        expect(paths).toContain(sourceProject1.path);
+        expect(paths).toContain(sourceProject2.path);
+      });
+
+      it("returns empty array when no projects are merged", () => {
+        const merged = getMergedProjects(primaryProject.path);
+        expect(merged).toHaveLength(0);
+      });
+
+      it("returns empty array for non-existent primary path", () => {
+        const merged = getMergedProjects("/nonexistent/path");
+        expect(merged).toHaveLength(0);
+      });
+
+      it("does not return the primary project itself", () => {
+        mergeProjects([sourceProject1.path], primaryProject.path);
+
+        const merged = getMergedProjects(primaryProject.path);
+
+        expect(merged).toHaveLength(1);
+        expect(merged[0].path).toBe(sourceProject1.path);
+      });
+
+      it("returns projects ordered by last activity desc", () => {
+        mergeProjects([sourceProject1.path, sourceProject2.path], primaryProject.path);
+
+        const merged = getMergedProjects(primaryProject.path);
+
+        // source2 has lastActivity 2026-01-18, source1 has 2026-01-15
+        expect(merged[0].path).toBe(sourceProject2.path);
+        expect(merged[1].path).toBe(sourceProject1.path);
+      });
+    });
+
+    describe("merge with other project features", () => {
+      it("merged projects retain their hidden status", () => {
+        setProjectHidden(sourceProject1.path, true);
+        mergeProjects([sourceProject1.path], primaryProject.path);
+
+        const source1 = getProjectByPath(sourceProject1.path);
+        expect(source1?.isHidden).toBe(true);
+        expect(source1?.mergedInto).toBe(primaryProject.path);
+      });
+
+      it("merged projects retain their group assignment", () => {
+        const group = createProjectGroup({ name: "Test Group" });
+        setProjectGroup(sourceProject1.path, group.id);
+        mergeProjects([sourceProject1.path], primaryProject.path);
+
+        const source1 = getProjectByPath(sourceProject1.path);
+        expect(source1?.groupId).toBe(group.id);
+        expect(source1?.mergedInto).toBe(primaryProject.path);
+      });
+
+      it("getAllProjects includes merged projects by default", () => {
+        mergeProjects([sourceProject1.path], primaryProject.path);
+
+        // The frontend handles filtering merged projects
+        // getAllProjects should return all projects
+        const allProjects = getAllProjects({ includeHidden: true });
+        const paths = allProjects.map((p) => p.path);
+
+        expect(paths).toContain(primaryProject.path);
+        expect(paths).toContain(sourceProject1.path);
+        expect(paths).toContain(sourceProject2.path);
+      });
+
+      it("mergedInto field is included in project queries", () => {
+        mergeProjects([sourceProject1.path], primaryProject.path);
+
+        const project = getProjectByPath(sourceProject1.path);
+        expect(project).toHaveProperty("mergedInto");
+        expect(project?.mergedInto).toBe(primaryProject.path);
+      });
+
+      it("unmerged projects have null mergedInto", () => {
+        const project = getProjectByPath(sourceProject1.path);
+        expect(project?.mergedInto).toBeNull();
+      });
     });
   });
 });

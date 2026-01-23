@@ -20,6 +20,9 @@ import {
   updateProjectGroup,
   deleteProjectGroup,
   getMonthlySummary,
+  mergeProjects,
+  unmergeProject,
+  getMergedProjects,
 } from "./services/database.js";
 import {
   syncSessionsToDatabase,
@@ -234,6 +237,39 @@ ipcMain.handle("projects:getDefault", () => {
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : "Failed to get default project",
+    };
+  }
+});
+
+ipcMain.handle("projects:merge", (_event, { sourcePaths, targetPath }) => {
+  try {
+    mergeProjects(sourcePaths, targetPath);
+    return { success: true };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Failed to merge projects",
+    };
+  }
+});
+
+ipcMain.handle("projects:unmerge", (_event, { path }) => {
+  try {
+    unmergeProject(path);
+    return { success: true };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Failed to unmerge project",
+    };
+  }
+});
+
+ipcMain.handle("projects:getMergedProjects", (_event, { primaryPath }) => {
+  try {
+    const projects = getMergedProjects(primaryPath);
+    return { projects };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Failed to get merged projects",
     };
   }
 });
