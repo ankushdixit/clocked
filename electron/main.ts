@@ -19,6 +19,7 @@ import {
   createProjectGroup,
   updateProjectGroup,
   deleteProjectGroup,
+  getMonthlySummary,
 } from "./services/database.js";
 import {
   syncSessionsToDatabase,
@@ -361,6 +362,18 @@ ipcMain.handle("data:status", () => {
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : "Failed to get data status",
+    };
+  }
+});
+
+// IPC Handlers - Analytics
+ipcMain.handle("analytics:getMonthlySummary", (_event, { month }) => {
+  try {
+    const summary = getMonthlySummary(month);
+    return { summary };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Failed to get monthly summary",
     };
   }
 });

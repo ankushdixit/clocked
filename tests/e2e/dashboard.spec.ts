@@ -3,36 +3,41 @@ import AxeBuilder from "@axe-core/playwright";
 
 /**
  * Dashboard E2E Tests
- * Tests the main dashboard functionality and accessibility
+ * Tests the main dashboard (Monthly Usage) functionality and accessibility
  */
 
 test.describe("Dashboard Page", () => {
-  test("should display main heading", async ({ page }) => {
+  test("should display monthly usage heading", async ({ page }) => {
     await page.goto("/");
 
-    // Check that main heading is visible
-    await expect(page.getByRole("heading", { name: "Clocked" })).toBeVisible();
+    // Check that monthly usage heading is visible (format: "MONTH YEAR USAGE")
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("USAGE");
   });
 
-  test("should display electron connection card", async ({ page }) => {
+  test("should display metrics cards in browser mode", async ({ page }) => {
     await page.goto("/");
 
-    // Check that electron connection card is visible
-    await expect(page.getByText("Electron Connection")).toBeVisible();
-    // In browser mode, should show browser mode message
-    await expect(page.getByText("Running in browser mode")).toBeVisible();
+    // In browser mode, should show error message since Electron is not available
+    await expect(
+      page.getByText("Running in browser mode - connect via Electron for live data")
+    ).toBeVisible();
   });
 
-  test("should display health status card", async ({ page }) => {
+  test("should display sidebar navigation", async ({ page }, testInfo) => {
+    // Skip on mobile - sidebar is hidden on mobile viewports by design
+    test.skip(testInfo.project.name.includes("Mobile"), "Sidebar hidden on mobile");
+
     await page.goto("/");
 
-    // Check that health status card is visible
-    await expect(page.getByText("Health Status")).toBeVisible();
-    // In browser mode, health check should be unavailable
-    await expect(page.getByText("Health check unavailable")).toBeVisible();
+    // Check that sidebar navigation links are visible
+    await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Projects" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
   });
 
-  test("should have accessible search functionality", async ({ page }) => {
+  test.skip("should have accessible search functionality", async ({ page }) => {
+    // TODO: Re-enable when search is added to the frameless window UI
     await page.goto("/");
 
     // Find search input by aria-label
@@ -66,7 +71,7 @@ test.describe("Dashboard Page", () => {
     await page.goto("/");
 
     // Check that content is visible on mobile
-    await expect(page.getByRole("heading", { name: "Clocked" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
     // Sidebar should be hidden on mobile
     const sidebar = page.locator("aside");

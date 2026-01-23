@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Monthly Usage Dashboard (`/`) with comprehensive usage analytics:
+  - **Usage Meter**: Progress bar showing estimated usage percentage with color coding
+  - **Metrics Grid**: 6 metric cards (Sessions, Session Time, API Cost, Subscription, Value Multiplier, Human:AI ratio)
+  - **Activity Heatmap**: GitHub-style calendar showing daily session activity with 6 intensity levels and tooltips
+  - **Top Projects**: Top 5 projects by session time with progress bars and navigation links
+  - IPC handler `analytics:getMonthlySummary` for monthly data aggregation
+  - Usage calculator utilities (`lib/calculators/usage-calculator.ts`) for value multiplier and time ratio
+  - Relative intensity coloring for heatmap based on actual data distribution
+- date-fns dependency for date manipulation in dashboard components
+
 - Frameless window UI shell redesign for native macOS/Windows experience:
   - **macOS**: Hidden title bar with native traffic lights (close/minimize/maximize)
   - **Windows/Linux**: Custom window controls component (minimize/maximize/close buttons)

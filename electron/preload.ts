@@ -32,6 +32,8 @@ const ALLOWED_CHANNELS = [
   // Data management channels
   "data:sync",
   "data:status",
+  // Analytics channels
+  "analytics:getMonthlySummary",
 ];
 
 contextBridge.exposeInMainWorld("electron", {
@@ -96,6 +98,12 @@ contextBridge.exposeInMainWorld("electron", {
   data: {
     sync: (): Promise<unknown> => ipcRenderer.invoke("data:sync"),
     status: (): Promise<unknown> => ipcRenderer.invoke("data:status"),
+  },
+
+  // Analytics API
+  analytics: {
+    getMonthlySummary: (month: string): Promise<unknown> =>
+      ipcRenderer.invoke("analytics:getMonthlySummary", { month }),
   },
 
   // Generic invoke for custom channels (with validation)
