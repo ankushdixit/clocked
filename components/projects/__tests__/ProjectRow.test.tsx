@@ -1,278 +1,311 @@
 /**
  * @jest-environment @stryker-mutator/jest-runner/jest-env/jsdom
  */
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { ProjectRow } from "../ProjectRow";
-import { Table, TableBody } from "@/components/ui/table";
 import type { Project, ProjectGroup } from "@/types/electron";
 
-const mockProject: Project = {
+// Mock child components to keep tests focused on ProjectRow
+jest.mock("../ProjectRowStats", () => ({
+  ProjectRowStats: ({ project }: { project: Project }) => (
+    <div data-testid="project-row-stats">{project.name} stats</div>
+  ),
+}));
+
+jest.mock("../ProjectRowActionMenu", () => ({
+  ProjectRowActionMenu: () => <div data-testid="project-row-action-menu">Action Menu</div>,
+}));
+
+const createMockProject = (overrides: Partial<Project> = {}): Project => ({
   path: "/Users/test/my-project",
   name: "my-project",
   firstActivity: "2024-01-01T10:00:00Z",
   lastActivity: "2024-01-15T15:30:00Z",
   sessionCount: 5,
   messageCount: 100,
-  totalTime: 3600000, // 1 hour
+  totalTime: 3600000,
   isHidden: false,
   groupId: null,
-  isDefault: false,
-};
+  mergedInto: null,
+  ...overrides,
+});
 
-const mockGroups: ProjectGroup[] = [
-  {
-    id: "group-1",
-    name: "Work Projects",
-    color: "#3b82f6",
-    createdAt: "2024-01-01T00:00:00Z",
-    sortOrder: 0,
-  },
-];
+const mockGroups: ProjectGroup[] = [];
 
-const renderProjectRow = (
-  project: Project,
-  onClick: jest.Mock,
-  options: {
-    groups?: ProjectGroup[];
-    onSetHidden?: jest.Mock;
-    onSetGroup?: jest.Mock;
-    onSetDefault?: jest.Mock;
-  } = {}
-) => {
-  const {
-    groups = mockGroups,
-    onSetHidden = jest.fn(),
-    onSetGroup = jest.fn(),
-    onSetDefault = jest.fn(),
-  } = options;
-
-  return render(
-    <Table>
-      <TableBody>
-        <ProjectRow
-          project={project}
-          groups={groups}
-          onClick={onClick}
-          onSetHidden={onSetHidden}
-          onSetGroup={onSetGroup}
-          onSetDefault={onSetDefault}
-        />
-      </TableBody>
-    </Table>
-  );
+const defaultProps = {
+  project: createMockProject(),
+  groups: mockGroups,
+  onClick: jest.fn(),
+  onSetHidden: jest.fn(),
+  onSetGroup: jest.fn(),
+  onUnmerge: jest.fn(),
+  isSelectMode: false,
+  isSelected: false,
+  onToggleSelection: jest.fn(),
 };
 
 describe("ProjectRow", () => {
-  it("renders project name", () => {
-    const onClick = jest.fn();
-    renderProjectRow(mockProject, onClick);
-    expect(screen.getByText("my-project")).toBeInTheDocument();
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  it("renders session count", () => {
-    const onClick = jest.fn();
-    renderProjectRow(mockProject, onClick);
-    expect(screen.getByText("5")).toBeInTheDocument();
-  });
+  describe("Rendering project information", () => {
+    it("displays the project name", () => {
+      render(<ProjectRow {...defaultProps} />);
 
-  it("renders formatted time", () => {
-    const onClick = jest.fn();
-    renderProjectRow(mockProject, onClick);
-    expect(screen.getByText("1h 0m")).toBeInTheDocument();
-  });
+      expect(screen.getByText("my-project")).toBeInTheDocument();
+    });
 
-  it("renders last activity date", () => {
-    const onClick = jest.fn();
-    renderProjectRow(mockProject, onClick);
-    // Date format depends on locale, check that a date-like string is present
-    const dateCell = screen.getByText(/2024/);
-    expect(dateCell).toBeInTheDocument();
-  });
+    it("displays the project path", () => {
+      render(<ProjectRow {...defaultProps} />);
 
-  it("calls onClick when name cell is clicked", () => {
-    const onClick = jest.fn();
-    renderProjectRow(mockProject, onClick);
+      expect(screen.getByText("/Users/test/my-project")).toBeInTheDocument();
+    });
 
-    const nameCell = screen.getByText("my-project");
-    fireEvent.click(nameCell);
+    it("renders the stats component", () => {
+      render(<ProjectRow {...defaultProps} />);
 
-    expect(onClick).toHaveBeenCalledWith(mockProject);
-  });
+      expect(screen.getByTestId("project-row-stats")).toBeInTheDocument();
+    });
 
-  it("has correct test id", () => {
-    const onClick = jest.fn();
-    renderProjectRow(mockProject, onClick);
-    expect(screen.getByTestId(`project-row-${mockProject.path}`)).toBeInTheDocument();
-  });
+    it("renders the action menu", () => {
+      render(<ProjectRow {...defaultProps} />);
 
-  it("renders 0m for zero totalTime", () => {
-    const onClick = jest.fn();
-    const projectWithZeroTime = { ...mockProject, totalTime: 0 };
-    renderProjectRow(projectWithZeroTime, onClick);
-    expect(screen.getByText("0m")).toBeInTheDocument();
-  });
+      expect(screen.getByTestId("project-row-action-menu")).toBeInTheDocument();
+    });
 
-  it("renders project path", () => {
-    const onClick = jest.fn();
-    renderProjectRow(mockProject, onClick);
-    expect(screen.getByText("/Users/test/my-project")).toBeInTheDocument();
-  });
+    it("sets the correct data-testid based on project path", () => {
+      render(<ProjectRow {...defaultProps} />);
 
-  it("shows star icon for default project", () => {
-    const onClick = jest.fn();
-    const defaultProject = { ...mockProject, isDefault: true };
-    renderProjectRow(defaultProject, onClick);
-    // The star icon should be present (it's a lucide icon, so check for the svg)
-    expect(screen.getByRole("row")).toBeInTheDocument();
-  });
-
-  it("has actions menu button", () => {
-    const onClick = jest.fn();
-    renderProjectRow(mockProject, onClick);
-    expect(screen.getByRole("button", { name: /open menu/i })).toBeInTheDocument();
-  });
-});
-
-describe("ProjectRow dropdown menu actions", () => {
-  it("calls onSetHidden when hide project is clicked", async () => {
-    const user = userEvent.setup();
-    const onClick = jest.fn();
-    const onSetHidden = jest.fn();
-    renderProjectRow(mockProject, onClick, { onSetHidden });
-
-    // Open the dropdown menu
-    const menuButton = screen.getByRole("button", { name: /open menu/i });
-    await user.click(menuButton);
-
-    // Click on "Hide project"
-    const hideOption = await screen.findByRole("menuitem", { name: /hide project/i });
-    await user.click(hideOption);
-
-    expect(onSetHidden).toHaveBeenCalledWith(mockProject, true);
-  });
-
-  it("calls onSetHidden with false when show project is clicked for hidden project", async () => {
-    const user = userEvent.setup();
-    const onClick = jest.fn();
-    const onSetHidden = jest.fn();
-    const hiddenProject = { ...mockProject, isHidden: true };
-    renderProjectRow(hiddenProject, onClick, { onSetHidden });
-
-    // Open the dropdown menu
-    const menuButton = screen.getByRole("button", { name: /open menu/i });
-    await user.click(menuButton);
-
-    // Click on "Show project"
-    const showOption = await screen.findByRole("menuitem", { name: /show project/i });
-    await user.click(showOption);
-
-    expect(onSetHidden).toHaveBeenCalledWith(hiddenProject, false);
-  });
-
-  it("calls onSetDefault when set as default is clicked", async () => {
-    const user = userEvent.setup();
-    const onClick = jest.fn();
-    const onSetDefault = jest.fn();
-    renderProjectRow(mockProject, onClick, { onSetDefault });
-
-    // Open the dropdown menu
-    const menuButton = screen.getByRole("button", { name: /open menu/i });
-    await user.click(menuButton);
-
-    // Click on "Set as default"
-    const setDefaultOption = await screen.findByRole("menuitem", { name: /set as default/i });
-    await user.click(setDefaultOption);
-
-    expect(onSetDefault).toHaveBeenCalledWith(mockProject);
-  });
-
-  it("does not show set as default for already default project", async () => {
-    const user = userEvent.setup();
-    const onClick = jest.fn();
-    const defaultProject = { ...mockProject, isDefault: true };
-    renderProjectRow(defaultProject, onClick);
-
-    // Open the dropdown menu
-    const menuButton = screen.getByRole("button", { name: /open menu/i });
-    await user.click(menuButton);
-
-    // Wait for menu to open then check
-    await waitFor(() => {
-      expect(screen.queryByRole("menuitem", { name: /set as default/i })).not.toBeInTheDocument();
+      expect(screen.getByTestId("project-row-/Users/test/my-project")).toBeInTheDocument();
     });
   });
 
-  it("shows Move to group submenu trigger", async () => {
-    const user = userEvent.setup();
-    const onClick = jest.fn();
-    renderProjectRow(mockProject, onClick);
+  describe("Selection checkbox behavior", () => {
+    it("does not show checkbox when select mode is disabled", () => {
+      render(<ProjectRow {...defaultProps} isSelectMode={false} />);
 
-    // Open the dropdown menu
-    const menuButton = screen.getByRole("button", { name: /open menu/i });
-    await user.click(menuButton);
+      expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    });
 
-    // "Move to group" should be visible
-    expect(await screen.findByText("Move to group")).toBeInTheDocument();
+    it("shows checkbox when select mode is enabled", () => {
+      render(<ProjectRow {...defaultProps} isSelectMode={true} />);
+
+      expect(screen.getByRole("checkbox")).toBeInTheDocument();
+    });
+
+    it("checkbox has correct aria-label for accessibility", () => {
+      const project = createMockProject({ name: "test-project" });
+      render(<ProjectRow {...defaultProps} project={project} isSelectMode={true} />);
+
+      expect(screen.getByRole("checkbox")).toHaveAttribute("aria-label", "Select test-project");
+    });
+
+    it("checkbox is unchecked when project is not selected", () => {
+      render(<ProjectRow {...defaultProps} isSelectMode={true} isSelected={false} />);
+
+      expect(screen.getByRole("checkbox")).not.toBeChecked();
+    });
+
+    it("checkbox is checked when project is selected", () => {
+      render(<ProjectRow {...defaultProps} isSelectMode={true} isSelected={true} />);
+
+      expect(screen.getByRole("checkbox")).toBeChecked();
+    });
+
+    it("calls onToggleSelection when checkbox container is clicked", () => {
+      const onToggleSelection = jest.fn();
+      render(
+        <ProjectRow {...defaultProps} isSelectMode={true} onToggleSelection={onToggleSelection} />
+      );
+
+      const checkbox = screen.getByRole("checkbox");
+      fireEvent.click(checkbox.parentElement!);
+
+      expect(onToggleSelection).toHaveBeenCalledTimes(1);
+    });
+
+    it("clicking checkbox does not trigger row onClick", () => {
+      const onClick = jest.fn();
+      const onToggleSelection = jest.fn();
+      render(
+        <ProjectRow
+          {...defaultProps}
+          onClick={onClick}
+          isSelectMode={true}
+          onToggleSelection={onToggleSelection}
+        />
+      );
+
+      const checkbox = screen.getByRole("checkbox");
+      fireEvent.click(checkbox.parentElement!);
+
+      expect(onToggleSelection).toHaveBeenCalled();
+      expect(onClick).not.toHaveBeenCalled();
+    });
   });
 
-  it("shows no groups available message when groups list is empty", async () => {
-    const user = userEvent.setup();
-    const onClick = jest.fn();
-    renderProjectRow(mockProject, onClick, { groups: [] });
+  describe("Click behavior", () => {
+    it("calls onClick when the row is clicked", () => {
+      const onClick = jest.fn();
+      render(<ProjectRow {...defaultProps} onClick={onClick} />);
 
-    // Open the dropdown menu
-    const menuButton = screen.getByRole("button", { name: /open menu/i });
-    await user.click(menuButton);
+      const row = screen.getByTestId("project-row-/Users/test/my-project");
+      fireEvent.click(row);
 
-    // Find the "Move to group" trigger and hover to open submenu
-    const moveToGroupTrigger = await screen.findByText("Move to group");
-    await user.hover(moveToGroupTrigger);
-
-    // "No groups available" should appear
-    expect(await screen.findByText("No groups available")).toBeInTheDocument();
+      expect(onClick).toHaveBeenCalledTimes(1);
+    });
   });
 
-  it("calls onSetGroup when a group is selected from submenu", async () => {
-    const user = userEvent.setup();
-    const onClick = jest.fn();
-    const onSetGroup = jest.fn();
-    renderProjectRow(mockProject, onClick, { onSetGroup });
+  describe("Merged projects badge", () => {
+    it("does not show merged badge when project has no merged projects", () => {
+      render(<ProjectRow {...defaultProps} mergedProjects={undefined} />);
 
-    // Open the dropdown menu
-    const menuButton = screen.getByRole("button", { name: /open menu/i });
-    await user.click(menuButton);
+      expect(screen.queryByText(/\d+/)).not.toBeInTheDocument();
+    });
 
-    // Hover over "Move to group" to open submenu
-    const moveToGroupTrigger = await screen.findByText("Move to group");
-    await user.hover(moveToGroupTrigger);
+    it("does not show merged badge when mergedProjects is empty array", () => {
+      render(<ProjectRow {...defaultProps} mergedProjects={[]} />);
 
-    // Wait for submenu to appear and click on the group using fireEvent
-    const groupOption = await screen.findByText("Work Projects");
-    fireEvent.click(groupOption);
+      // The badge shows a number, so we check there's no number badge displayed
+      const row = screen.getByTestId("project-row-/Users/test/my-project");
+      const badges = row.querySelectorAll(".inline-flex.items-center.gap-1");
+      expect(badges).toHaveLength(0);
+    });
 
-    expect(onSetGroup).toHaveBeenCalledWith(mockProject, "group-1");
+    it("shows merged badge with count when project has merged projects", () => {
+      const mergedProjects: Project[] = [
+        createMockProject({ path: "/Users/test/merged-1", name: "merged-1" }),
+        createMockProject({ path: "/Users/test/merged-2", name: "merged-2" }),
+      ];
+      render(<ProjectRow {...defaultProps} mergedProjects={mergedProjects} />);
+
+      expect(screen.getByText("2")).toBeInTheDocument();
+    });
+
+    it("shows merged badge with single count when one project is merged", () => {
+      const mergedProjects: Project[] = [
+        createMockProject({ path: "/Users/test/merged-1", name: "merged-1" }),
+      ];
+      render(<ProjectRow {...defaultProps} mergedProjects={mergedProjects} />);
+
+      expect(screen.getByText("1")).toBeInTheDocument();
+    });
   });
 
-  it("calls onSetGroup with null when removing from group", async () => {
-    const user = userEvent.setup();
-    const onClick = jest.fn();
-    const onSetGroup = jest.fn();
-    const projectInGroup = { ...mockProject, groupId: "group-1" };
-    renderProjectRow(projectInGroup, onClick, { onSetGroup });
+  describe("Hidden project styling", () => {
+    it("applies reduced opacity when project is hidden", () => {
+      const project = createMockProject({ isHidden: true });
+      render(<ProjectRow {...defaultProps} project={project} />);
 
-    // Open the dropdown menu
-    const menuButton = screen.getByRole("button", { name: /open menu/i });
-    await user.click(menuButton);
+      const row = screen.getByTestId("project-row-/Users/test/my-project");
+      expect(row).toHaveClass("opacity-60");
+    });
 
-    // Hover over "Move to group" to open submenu
-    const moveToGroupTrigger = await screen.findByText("Move to group");
-    await user.hover(moveToGroupTrigger);
+    it("does not apply reduced opacity when project is visible", () => {
+      const project = createMockProject({ isHidden: false });
+      render(<ProjectRow {...defaultProps} project={project} />);
 
-    // Wait for submenu to appear and click on "Remove from group" using fireEvent
-    const removeOption = await screen.findByText("Remove from group");
-    fireEvent.click(removeOption);
+      const row = screen.getByTestId("project-row-/Users/test/my-project");
+      expect(row).not.toHaveClass("opacity-60");
+    });
+  });
 
-    expect(onSetGroup).toHaveBeenCalledWith(projectInGroup, null);
+  describe("Selected state styling", () => {
+    it("applies default selected styling when selected without accent color", () => {
+      render(<ProjectRow {...defaultProps} isSelected={true} accentColor={undefined} />);
+
+      const row = screen.getByTestId("project-row-/Users/test/my-project");
+      expect(row).toHaveClass("bg-primary/5");
+      expect(row).toHaveClass("ring-1");
+      expect(row).toHaveClass("ring-primary");
+    });
+
+    it("does not apply selected styling when not selected", () => {
+      render(<ProjectRow {...defaultProps} isSelected={false} />);
+
+      const row = screen.getByTestId("project-row-/Users/test/my-project");
+      expect(row).not.toHaveClass("bg-primary/5");
+      expect(row).not.toHaveClass("ring-1");
+      expect(row).not.toHaveClass("ring-primary");
+    });
+  });
+
+  describe("Accent color styling", () => {
+    it("applies custom background and box-shadow when selected with accent color", () => {
+      const accentColor = "#ff5733";
+      render(<ProjectRow {...defaultProps} isSelected={true} accentColor={accentColor} />);
+
+      const row = screen.getByTestId("project-row-/Users/test/my-project");
+      expect(row).toHaveStyle({
+        backgroundColor: "#ff573310",
+        boxShadow: "inset 0 0 0 1px #ff5733",
+      });
+    });
+
+    it("does not apply custom styling when selected but accent color is null", () => {
+      render(<ProjectRow {...defaultProps} isSelected={true} accentColor={null} />);
+
+      const row = screen.getByTestId("project-row-/Users/test/my-project");
+      expect(row).toHaveClass("bg-primary/5");
+    });
+
+    it("does not apply custom accent styling when not selected", () => {
+      const accentColor = "#ff5733";
+      render(<ProjectRow {...defaultProps} isSelected={false} accentColor={accentColor} />);
+
+      const row = screen.getByTestId("project-row-/Users/test/my-project");
+      expect(row).not.toHaveStyle({
+        backgroundColor: "#ff573310",
+      });
+    });
+
+    it("applies accent color border on hover indicator", () => {
+      const accentColor = "#3b82f6";
+      render(<ProjectRow {...defaultProps} accentColor={accentColor} />);
+
+      const row = screen.getByTestId("project-row-/Users/test/my-project");
+      const hoverIndicator = row.querySelector(".absolute.left-0");
+      expect(hoverIndicator).toHaveStyle({ backgroundColor: "#3b82f6" });
+    });
+
+    it("uses default primary color for hover indicator when no accent color", () => {
+      render(<ProjectRow {...defaultProps} accentColor={undefined} />);
+
+      const row = screen.getByTestId("project-row-/Users/test/my-project");
+      const hoverIndicator = row.querySelector(".absolute.left-0");
+      expect(hoverIndicator).toHaveStyle({ backgroundColor: "var(--color-primary)" });
+    });
+
+    it("applies accent color to checkbox when in select mode with accent color", () => {
+      const accentColor = "#ff5733";
+      render(<ProjectRow {...defaultProps} isSelectMode={true} accentColor={accentColor} />);
+
+      const checkbox = screen.getByRole("checkbox");
+      expect(checkbox).toHaveStyle({ color: "#ff5733", borderColor: "#ff5733" });
+    });
+  });
+
+  describe("Row styling and interaction", () => {
+    it("has cursor-pointer class for click interaction", () => {
+      render(<ProjectRow {...defaultProps} />);
+
+      const row = screen.getByTestId("project-row-/Users/test/my-project");
+      expect(row).toHaveClass("cursor-pointer");
+    });
+
+    it("has group class for hover interactions", () => {
+      render(<ProjectRow {...defaultProps} />);
+
+      const row = screen.getByTestId("project-row-/Users/test/my-project");
+      expect(row).toHaveClass("group");
+    });
+
+    it("has transition classes for smooth hover effects", () => {
+      render(<ProjectRow {...defaultProps} />);
+
+      const row = screen.getByTestId("project-row-/Users/test/my-project");
+      expect(row).toHaveClass("transition-all");
+    });
   });
 });

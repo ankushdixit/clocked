@@ -7,7 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Projects List View Redesign**: Complete UI overhaul with compact inline design
+  - Replaced progress bars with 7-day activity sparklines for better visualization
+  - Inline stats layout (sessions, time, last activity) with fixed-width columns for alignment
+  - Responsive design: stats wrap to second row below 1024px
+  - Collapsible group headers with colored accent indicators
+  - Improved sort dropdown with direction arrows (↑/↓) indicating sort order
+  - Intuitive arrow direction for name sort (↓ = A-Z, ↑ = Z-A)
+  - Checkbox styling shows tick instead of filled background when selected
+  - Group-colored checkboxes and selection highlights in merge mode
+  - Consistent button styling across Sort, Merge, and Cancel buttons
+  - Mobile-responsive toolbar with shortened text on small screens
+
 ### Added
+
+- **Project Merge UI**: Frontend interface for merging duplicate projects
+  - Multi-select mode with colored checkboxes matching group colors
+  - Merge dialog for selecting primary project
+  - Merged projects badge showing count on primary project
+  - Unmerge option in project action menu
+  - Note: Backend implementation pending (see `feature_project_merge_backend_implemen` work item)
+
+- **Comprehensive Test Coverage**: 211 tests for project components
+  - `ProjectRow.test.tsx` - 30 tests for row rendering and interactions
+  - `ProjectRowStats.test.tsx` - 21 tests for sparkline and stats display
+  - `ProjectRowActionMenu.test.tsx` - 23 tests for dropdown menu actions
+  - `ProjectGroupHeader.test.tsx` - 13 tests for collapsible headers
+  - `ProjectsToolbar.test.tsx` - 41 tests for sort/merge controls
+  - `MergeDialog.test.tsx` - 22 tests for merge confirmation dialog
+  - `activity.test.ts` - 16 tests for activity data generation
+  - `time.test.ts` - 17 new tests for `formatLastActivity` function
+
+- **New Utility Functions**:
+  - `formatLastActivity()` in `lib/formatters/time.ts` for relative date formatting
+  - `generateActivityData()` in `lib/projects/activity.ts` for deterministic sparkline data
+
+### Refactored
+
+- **Projects Components Architecture**: Extracted into modular components
+  - `ProjectRow.tsx` - Individual project row with sub-components
+  - `ProjectRowStats.tsx` - Sparkline and statistics display
+  - `ProjectRowActionMenu.tsx` - Dropdown action menu
+  - `ProjectGroupHeader.tsx` - Collapsible group header
+  - `ProjectsToolbar.tsx` - Sort dropdown and merge controls
+  - `MergeDialog.tsx` - Merge confirmation dialog
+  - `ProjectGroupSection.tsx` - Group section wrapper
+  - `useProjectsListState.ts` - Custom hook for UI state management
+  - `useProjectsData.ts` - Custom hook for data transformations
+
+- **Fixed ESLint Warnings**: Refactored 7 files to comply with max-lines-per-function rule
+  - `projects/page.tsx` - Extracted loading/error/empty states
+  - `settings/page.tsx` - Extracted section components
+  - `ActivityHeatmap.tsx` - Extracted cell and legend components
+  - `HumanAIRatioCard.tsx` - Extracted chart sub-components
+  - `ProjectsList.tsx` - Extracted custom hooks
+  - `ProjectsToolbar.tsx` - Extracted dropdown sub-components
+  - `ipc-data-provider.ts` - Extracted resource handlers
+
+### Fixed
+
+- Scroll chaining issue on Projects page (body scroll when scrolling project list)
 
 - Redesigned Dashboard with new card-based UI components:
   - **Hero Metrics Row**: 4 prominent metric cards (Sessions, Session Time, API Cost, Value) with sparklines and trend badges

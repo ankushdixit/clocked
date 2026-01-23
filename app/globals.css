@@ -65,7 +65,13 @@
   * {
     border-color: var(--color-border);
   }
+  html {
+    overflow: hidden;
+    height: 100%;
+  }
   body {
+    height: 100%;
+    overflow: hidden;
     background-color: var(--color-background);
     color: var(--color-foreground);
   }

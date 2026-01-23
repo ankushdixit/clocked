@@ -21,8 +21,9 @@ const mockElectron = {
     getCount: jest.fn(),
     setHidden: jest.fn(),
     setGroup: jest.fn(),
-    setDefault: jest.fn(),
-    getDefault: jest.fn(),
+    merge: jest.fn(),
+    unmerge: jest.fn(),
+    getMergedProjects: jest.fn(),
   },
   groups: {
     getAll: jest.fn(),

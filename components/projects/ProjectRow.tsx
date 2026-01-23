@@ -1,140 +1,141 @@
 "use client";
 
-import { TableCell, TableRow } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { formatDuration } from "@/lib/formatters/time";
-import { MoreHorizontal, EyeOff, Eye, Star, FolderPlus, FolderMinus } from "lucide-react";
-import type { Project, ProjectGroup } from "@/types/electron";
+/**
+ * Project row component
+ * Displays a single project with name, path, stats, and action menu
+ */
 
-interface ProjectRowProps {
-  project: Project;
-  groups: ProjectGroup[];
-  onClick: (project: Project) => void;
-  onSetHidden: (project: Project, hidden: boolean) => void;
-  onSetGroup: (project: Project, groupId: string | null) => void;
-  onSetDefault: (project: Project) => void;
+import { Checkbox } from "@/components/ui/checkbox";
+import { GitMerge } from "lucide-react";
+import { ProjectRowStats } from "./ProjectRowStats";
+import { ProjectRowActionMenu } from "./ProjectRowActionMenu";
+import type { ProjectRowProps } from "./types";
+
+/**
+ * Get styles for selected state based on accent color
+ */
+function getSelectedStyles(isSelected: boolean, accentColor?: string | null) {
+  if (!isSelected || !accentColor) return {};
+  return {
+    backgroundColor: `${accentColor}10`,
+    boxShadow: `inset 0 0 0 1px ${accentColor}`,
+  };
 }
 
 /**
- * Individual project row component for the projects list
+ * Get CSS classes for the row container
  */
+function getRowClasses(isSelected: boolean, isHidden: boolean, accentColor?: string | null) {
+  const base =
+    "group relative flex flex-wrap lg:flex-nowrap items-center gap-x-4 gap-y-2 py-3 px-3 rounded-lg cursor-pointer transition-all hover:bg-muted/50";
+  const selectedClass = isSelected && !accentColor ? "bg-primary/5 ring-1 ring-primary" : "";
+  const hiddenClass = isHidden ? "opacity-60" : "";
+  return `${base} ${selectedClass} ${hiddenClass}`;
+}
+
 export function ProjectRow({
   project,
   groups,
   onClick,
   onSetHidden,
   onSetGroup,
-  onSetDefault,
+  onUnmerge,
+  isSelectMode,
+  isSelected,
+  onToggleSelection,
+  mergedProjects,
+  accentColor,
 }: ProjectRowProps) {
+  const hasMergedProjects = mergedProjects && mergedProjects.length > 0;
+
   return (
-    <TableRow className="cursor-pointer hover:bg-muted" data-testid={`project-row-${project.path}`}>
-      <TableCell onClick={() => onClick(project)}>
+    <div
+      onClick={onClick}
+      className={getRowClasses(isSelected, project.isHidden, accentColor)}
+      style={getSelectedStyles(isSelected, accentColor)}
+      data-testid={`project-row-${project.path}`}
+    >
+      {/* Left accent bar on hover */}
+      <div
+        className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hidden lg:block"
+        style={{ backgroundColor: accentColor || "var(--color-primary)" }}
+      />
+
+      {/* Selection checkbox */}
+      {isSelectMode && (
+        <ProjectRowCheckbox
+          projectName={project.name}
+          isSelected={isSelected}
+          accentColor={accentColor}
+          onToggle={onToggleSelection}
+        />
+      )}
+
+      {/* Project name and path */}
+      <div className="flex-1 min-w-0 order-1">
         <div className="flex items-center gap-2">
-          {project.isDefault && <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />}
-          <div>
-            <div className="font-medium">{project.name}</div>
-            <div className="text-xs text-muted-foreground truncate max-w-md" title={project.path}>
-              {project.path}
-            </div>
-          </div>
+          <h3 className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+            {project.name}
+          </h3>
+          {hasMergedProjects && <MergedBadge count={mergedProjects.length} />}
         </div>
-      </TableCell>
-      <TableCell onClick={() => onClick(project)}>{project.sessionCount}</TableCell>
-      <TableCell onClick={() => onClick(project)}>{formatDuration(project.totalTime)}</TableCell>
-      <TableCell onClick={() => onClick(project)}>
-        {formatLastActivity(project.lastActivity)}
-      </TableCell>
-      <TableCell>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <MoreHorizontal className="h-4 w-4" />
-              <span className="sr-only">Open menu</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {!project.isDefault && (
-              <DropdownMenuItem onClick={() => onSetDefault(project)}>
-                <Star className="mr-2 h-4 w-4" />
-                Set as default
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <FolderPlus className="mr-2 h-4 w-4" />
-                Move to group
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {project.groupId && (
-                  <>
-                    <DropdownMenuItem onClick={() => onSetGroup(project, null)}>
-                      <FolderMinus className="mr-2 h-4 w-4" />
-                      Remove from group
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-                {groups.length === 0 ? (
-                  <DropdownMenuItem disabled>No groups available</DropdownMenuItem>
-                ) : (
-                  groups.map((group) => (
-                    <DropdownMenuItem
-                      key={group.id}
-                      onClick={() => onSetGroup(project, group.id)}
-                      disabled={project.groupId === group.id}
-                    >
-                      {group.color && (
-                        <div
-                          className="mr-2 h-3 w-3 rounded-full"
-                          style={{ backgroundColor: group.color }}
-                        />
-                      )}
-                      {group.name}
-                    </DropdownMenuItem>
-                  ))
-                )}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onSetHidden(project, !project.isHidden)}>
-              {project.isHidden ? (
-                <>
-                  <Eye className="mr-2 h-4 w-4" />
-                  Show project
-                </>
-              ) : (
-                <>
-                  <EyeOff className="mr-2 h-4 w-4" />
-                  Hide project
-                </>
-              )}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </TableCell>
-    </TableRow>
+        <p className="text-xs text-muted-foreground truncate">{project.path}</p>
+      </div>
+
+      {/* Action menu */}
+      <ProjectRowActionMenu
+        project={project}
+        groups={groups}
+        mergedProjects={mergedProjects}
+        onSetHidden={onSetHidden}
+        onSetGroup={onSetGroup}
+        onUnmerge={onUnmerge}
+      />
+
+      {/* Stats with sparkline */}
+      <ProjectRowStats project={project} accentColor={accentColor} />
+    </div>
   );
 }
 
-/**
- * Format the last activity date for display
- */
-function formatLastActivity(lastActivity: string): string {
-  const date = new Date(lastActivity);
-  return date.toLocaleDateString();
+interface ProjectRowCheckboxProps {
+  projectName: string;
+  isSelected: boolean;
+  accentColor?: string | null;
+  onToggle: () => void;
+}
+
+function ProjectRowCheckbox({
+  projectName,
+  isSelected,
+  accentColor,
+  onToggle,
+}: ProjectRowCheckboxProps) {
+  const checkboxStyle = accentColor ? { color: accentColor, borderColor: accentColor } : undefined;
+
+  return (
+    <div
+      className="order-0"
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+    >
+      <Checkbox
+        checked={isSelected}
+        aria-label={`Select ${projectName}`}
+        className={accentColor ? "border-current" : ""}
+        style={checkboxStyle as React.CSSProperties}
+      />
+    </div>
+  );
+}
+
+function MergedBadge({ count }: { count: number }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+      <GitMerge className="h-3 w-3" />
+      {count}
+    </span>
+  );
 }

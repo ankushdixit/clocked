@@ -29,6 +29,161 @@ const GROUP_COLORS = [
   "#ec4899", // pink
 ];
 
+// Loading spinner component
+function LoadingSpinner() {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
+// Individual hidden project row
+interface HiddenProjectItemProps {
+  project: Project;
+  onUnhide: (project: Project) => void;
+  isUpdating: boolean;
+}
+
+function HiddenProjectItem({ project, onUnhide, isUpdating }: HiddenProjectItemProps) {
+  return (
+    <div className="flex items-center justify-between py-2 px-3 rounded-md border">
+      <div>
+        <div className="font-medium">{project.name}</div>
+        <div className="text-xs text-muted-foreground truncate max-w-md">{project.path}</div>
+      </div>
+      <Button variant="outline" size="sm" onClick={() => onUnhide(project)} disabled={isUpdating}>
+        <Eye className="mr-2 h-4 w-4" />
+        Unhide
+      </Button>
+    </div>
+  );
+}
+
+// Hidden projects section card
+interface HiddenProjectsSectionProps {
+  projects: Project[];
+  onUnhide: (project: Project) => void;
+  isUpdating: boolean;
+}
+
+function HiddenProjectsSection({ projects, onUnhide, isUpdating }: HiddenProjectsSectionProps) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Hidden Projects</CardTitle>
+        <CardDescription>
+          Projects you&apos;ve hidden from the main list. Click unhide to show them again.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {projects.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No hidden projects</p>
+        ) : (
+          <div className="space-y-2">
+            {projects.map((project) => (
+              <HiddenProjectItem
+                key={project.path}
+                project={project}
+                onUnhide={onUnhide}
+                isUpdating={isUpdating}
+              />
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Individual group row
+interface GroupItemProps {
+  group: ProjectGroup;
+  onUpdate: (name: string, color: string | null) => void;
+  onDelete: () => void;
+  isUpdating: boolean;
+  isDeleting: boolean;
+}
+
+function GroupItem({ group, onUpdate, onDelete, isUpdating, isDeleting }: GroupItemProps) {
+  return (
+    <div className="flex items-center justify-between py-2 px-3 rounded-md border">
+      <div className="flex items-center gap-3">
+        {group.color && (
+          <div className="h-4 w-4 rounded-full" style={{ backgroundColor: group.color }} />
+        )}
+        <span className="font-medium">{group.name}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <EditGroupDialog group={group} onSubmit={onUpdate} isLoading={isUpdating} />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-destructive hover:text-destructive"
+          onClick={onDelete}
+          disabled={isDeleting}
+        >
+          <Trash2 className="h-4 w-4" />
+          <span className="sr-only">Delete group</span>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Project groups section card
+interface ProjectGroupsSectionProps {
+  groups: ProjectGroup[];
+  onCreate: (name: string, color: string | null) => void;
+  onUpdate: (id: string, name: string, color: string | null) => void;
+  onDelete: (id: string) => void;
+  isCreating: boolean;
+  isUpdating: boolean;
+  isDeleting: boolean;
+}
+
+function ProjectGroupsSection({
+  groups,
+  onCreate,
+  onUpdate,
+  onDelete,
+  isCreating,
+  isUpdating,
+  isDeleting,
+}: ProjectGroupsSectionProps) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <div>
+          <CardTitle>Project Groups</CardTitle>
+          <CardDescription>Organize your projects into groups</CardDescription>
+        </div>
+        <CreateGroupDialog onSubmit={onCreate} isLoading={isCreating} />
+      </CardHeader>
+      <CardContent>
+        {groups.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            No groups yet. Create one to organize your projects.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {groups.map((group) => (
+              <GroupItem
+                key={group.id}
+                group={group}
+                onUpdate={(name, color) => onUpdate(group.id, name, color)}
+                onDelete={() => onDelete(group.id)}
+                isUpdating={isUpdating}
+                isDeleting={isDeleting}
+              />
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   const invalidate = useInvalidate();
 
@@ -58,54 +213,28 @@ export default function SettingsPage() {
 
   const handleUnhideProject = (project: Project) => {
     updateProjectMutation.mutate(
-      {
-        resource: "projects",
-        id: project.path,
-        values: { isHidden: false },
-      },
-      {
-        onSuccess: () => {
-          invalidate({ resource: "projects", invalidates: ["list"] });
-        },
-      }
+      { resource: "projects", id: project.path, values: { isHidden: false } },
+      { onSuccess: () => invalidate({ resource: "projects", invalidates: ["list"] }) }
     );
   };
 
   const handleCreateGroup = (name: string, color: string | null) => {
     createGroupMutation.mutate(
-      {
-        resource: "groups",
-        values: { name, color },
-      },
-      {
-        onSuccess: () => {
-          invalidate({ resource: "groups", invalidates: ["list"] });
-        },
-      }
+      { resource: "groups", values: { name, color } },
+      { onSuccess: () => invalidate({ resource: "groups", invalidates: ["list"] }) }
     );
   };
 
   const handleUpdateGroup = (id: string, name: string, color: string | null) => {
     updateGroupMutation.mutate(
-      {
-        resource: "groups",
-        id,
-        values: { name, color },
-      },
-      {
-        onSuccess: () => {
-          invalidate({ resource: "groups", invalidates: ["list"] });
-        },
-      }
+      { resource: "groups", id, values: { name, color } },
+      { onSuccess: () => invalidate({ resource: "groups", invalidates: ["list"] }) }
     );
   };
 
   const handleDeleteGroup = (id: string) => {
     deleteGroupMutation.mutate(
-      {
-        resource: "groups",
-        id,
-      },
+      { resource: "groups", id },
       {
         onSuccess: () => {
           invalidate({ resource: "groups", invalidates: ["list"] });
@@ -118,11 +247,7 @@ export default function SettingsPage() {
   const isLoading = projectsQuery.isLoading || groupsQuery.isLoading;
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   return (
@@ -133,100 +258,55 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6">
-        {/* Hidden Projects Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Hidden Projects</CardTitle>
-            <CardDescription>
-              Projects you&apos;ve hidden from the main list. Click unhide to show them again.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {hiddenProjects.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No hidden projects</p>
-            ) : (
-              <div className="space-y-2">
-                {hiddenProjects.map((project) => (
-                  <div
-                    key={project.path}
-                    className="flex items-center justify-between py-2 px-3 rounded-md border"
-                  >
-                    <div>
-                      <div className="font-medium">{project.name}</div>
-                      <div className="text-xs text-muted-foreground truncate max-w-md">
-                        {project.path}
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleUnhideProject(project)}
-                      disabled={isUpdatingProject}
-                    >
-                      <Eye className="mr-2 h-4 w-4" />
-                      Unhide
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <HiddenProjectsSection
+          projects={hiddenProjects}
+          onUnhide={handleUnhideProject}
+          isUpdating={isUpdatingProject}
+        />
 
-        {/* Project Groups Section */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardTitle>Project Groups</CardTitle>
-              <CardDescription>Organize your projects into groups</CardDescription>
-            </div>
-            <CreateGroupDialog onSubmit={handleCreateGroup} isLoading={isCreatingGroup} />
-          </CardHeader>
-          <CardContent>
-            {groups.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                No groups yet. Create one to organize your projects.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {groups.map((group) => (
-                  <div
-                    key={group.id}
-                    className="flex items-center justify-between py-2 px-3 rounded-md border"
-                  >
-                    <div className="flex items-center gap-3">
-                      {group.color && (
-                        <div
-                          className="h-4 w-4 rounded-full"
-                          style={{ backgroundColor: group.color }}
-                        />
-                      )}
-                      <span className="font-medium">{group.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <EditGroupDialog
-                        group={group}
-                        onSubmit={(name, color) => handleUpdateGroup(group.id, name, color)}
-                        isLoading={isUpdatingGroup}
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => handleDeleteGroup(group.id)}
-                        disabled={isDeletingGroup}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete group</span>
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <ProjectGroupsSection
+          groups={groups}
+          onCreate={handleCreateGroup}
+          onUpdate={handleUpdateGroup}
+          onDelete={handleDeleteGroup}
+          isCreating={isCreatingGroup}
+          isUpdating={isUpdatingGroup}
+          isDeleting={isDeletingGroup}
+        />
       </div>
+    </div>
+  );
+}
+
+// Color picker component used in dialogs
+interface ColorPickerProps {
+  selectedColor: string | null;
+  onColorChange: (color: string | null) => void;
+}
+
+function ColorPicker({ selectedColor, onColorChange }: ColorPickerProps) {
+  return (
+    <div className="flex gap-2 flex-wrap">
+      {GROUP_COLORS.map((c) => (
+        <button
+          key={c}
+          type="button"
+          className={`h-8 w-8 rounded-full border-2 transition-all ${
+            selectedColor === c ? "border-foreground scale-110" : "border-transparent"
+          }`}
+          style={{ backgroundColor: c }}
+          onClick={() => onColorChange(c)}
+        />
+      ))}
+      <button
+        type="button"
+        className={`h-8 w-8 rounded-full border-2 transition-all flex items-center justify-center ${
+          selectedColor === null ? "border-foreground scale-110" : "border-muted"
+        }`}
+        onClick={() => onColorChange(null)}
+      >
+        <span className="text-xs text-muted-foreground">None</span>
+      </button>
     </div>
   );
 }
@@ -278,28 +358,7 @@ function CreateGroupDialog({ onSubmit, isLoading }: CreateGroupDialogProps) {
             </div>
             <div className="grid gap-2">
               <Label>Color</Label>
-              <div className="flex gap-2 flex-wrap">
-                {GROUP_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    className={`h-8 w-8 rounded-full border-2 transition-all ${
-                      color === c ? "border-foreground scale-110" : "border-transparent"
-                    }`}
-                    style={{ backgroundColor: c }}
-                    onClick={() => setColor(c)}
-                  />
-                ))}
-                <button
-                  type="button"
-                  className={`h-8 w-8 rounded-full border-2 transition-all flex items-center justify-center ${
-                    color === null ? "border-foreground scale-110" : "border-muted"
-                  }`}
-                  onClick={() => setColor(null)}
-                >
-                  <span className="text-xs text-muted-foreground">None</span>
-                </button>
-              </div>
+              <ColorPicker selectedColor={color} onColorChange={setColor} />
             </div>
           </div>
           <DialogFooter>
@@ -362,28 +421,7 @@ function EditGroupDialog({ group, onSubmit, isLoading }: EditGroupDialogProps) {
             </div>
             <div className="grid gap-2">
               <Label>Color</Label>
-              <div className="flex gap-2 flex-wrap">
-                {GROUP_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    className={`h-8 w-8 rounded-full border-2 transition-all ${
-                      color === c ? "border-foreground scale-110" : "border-transparent"
-                    }`}
-                    style={{ backgroundColor: c }}
-                    onClick={() => setColor(c)}
-                  />
-                ))}
-                <button
-                  type="button"
-                  className={`h-8 w-8 rounded-full border-2 transition-all flex items-center justify-center ${
-                    color === null ? "border-foreground scale-110" : "border-muted"
-                  }`}
-                  onClick={() => setColor(null)}
-                >
-                  <span className="text-xs text-muted-foreground">None</span>
-                </button>
-              </div>
+              <ColorPicker selectedColor={color} onColorChange={setColor} />
             </div>
           </div>
           <DialogFooter>

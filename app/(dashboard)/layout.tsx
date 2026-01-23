@@ -7,9 +7,9 @@ import { WindowControls } from "@/components/layout/window-controls";
  */
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar />
-      <main className="flex-1 overflow-auto p-6">{children}</main>
+      <main className="flex-1 overflow-auto overscroll-contain p-6">{children}</main>
       <WindowControls />
     </div>
   );
