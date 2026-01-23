@@ -5,6 +5,7 @@ import { eachDayOfInterval, startOfMonth, endOfMonth, format, getDay, isSameDay 
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/formatters/time";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Activity } from "lucide-react";
 import type { DailyActivity } from "@/types/electron";
 
 export interface ActivityHeatmapProps {
@@ -132,7 +133,10 @@ export function ActivityHeatmap({ dailyActivity, month = new Date() }: ActivityH
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">Activity</CardTitle>
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <Activity className="w-4 h-4" />
+          Activity
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="relative">

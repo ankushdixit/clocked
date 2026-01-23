@@ -1,5 +1,12 @@
-export { MetricCard } from "./MetricCard";
-export { UsageMeter } from "./UsageMeter";
-export { MetricsGrid } from "./MetricsGrid";
 export { ActivityHeatmap } from "./ActivityHeatmap";
-export { TopProjects } from "./TopProjects";
+export { Sparkline } from "./Sparkline";
+export { HeroMetricCard } from "./HeroMetricCard";
+export { HeroMetricsRow } from "./HeroMetricsRow";
+export { TodayVsAverageCard } from "./TodayVsAverageCard";
+export { ClaudeMaxLimitsCard } from "./ClaudeMaxLimitsCard";
+export { HourlyDistributionCard } from "./HourlyDistributionCard";
+export { CumulativeCostCard } from "./CumulativeCostCard";
+export { TopProjectsCard } from "./TopProjectsCard";
+export { TimeDistributionCard } from "./TimeDistributionCard";
+export { HumanAIRatioCard } from "./HumanAIRatioCard";
+export { QuickStatsCard } from "./QuickStatsCard";

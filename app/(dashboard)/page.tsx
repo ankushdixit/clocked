@@ -1,109 +1,67 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { format, endOfMonth, differenceInDays } from "date-fns";
-import { Loader2 } from "lucide-react";
-import { UsageMeter } from "@/components/dashboard/UsageMeter";
-import { MetricsGrid } from "@/components/dashboard/MetricsGrid";
-import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
-import { TopProjects } from "@/components/dashboard/TopProjects";
-import { calculateUsagePercentage } from "@/lib/calculators/usage-calculator";
-import type { MonthlySummary, MonthlySummaryResponse } from "@/types/electron";
+/**
+ * Dashboard Page - Main Usage Dashboard
+ *
+ * Features:
+ * - Hero metrics with responsive sparklines
+ * - Today vs Daily Average + Claude Max Limits
+ * - Activity patterns row (heatmap, hourly, cost trend)
+ * - Top Projects + Time Distribution + Human:AI trend
+ * - Quick Stats
+ */
 
-interface DashboardState {
-  summary: MonthlySummary | null;
-  loading: boolean;
-  error: string | null;
-}
-
-function useMonthlySummary(): DashboardState {
-  const [state, setState] = useState<DashboardState>({
-    summary: null,
-    loading: true,
-    error: null,
-  });
-
-  useEffect(() => {
-    async function fetchMonthlySummary() {
-      if (typeof window !== "undefined" && window.electron) {
-        try {
-          const currentMonth = format(new Date(), "yyyy-MM");
-          const response = (await window.electron.analytics.getMonthlySummary(
-            currentMonth
-          )) as MonthlySummaryResponse;
-
-          if (response.error) {
-            setState({ summary: null, loading: false, error: response.error });
-          } else {
-            setState({ summary: response.summary ?? null, loading: false, error: null });
-          }
-        } catch (err) {
-          const error = err instanceof Error ? err.message : "Failed to load data";
-          setState({ summary: null, loading: false, error });
-        }
-      } else {
-        // Not running in Electron - show placeholder state
-        setState({
-          summary: null,
-          loading: false,
-          error: "Running in browser mode - connect via Electron for live data",
-        });
-      }
-    }
-
-    fetchMonthlySummary();
-  }, []);
-
-  return state;
-}
+import { mockSummary } from "@/lib/mockData";
+import {
+  ActivityHeatmap,
+  HeroMetricsRow,
+  TodayVsAverageCard,
+  ClaudeMaxLimitsCard,
+  QuickStatsCard,
+  HourlyDistributionCard,
+  CumulativeCostCard,
+  TopProjectsCard,
+  TimeDistributionCard,
+  HumanAIRatioCard,
+} from "@/components/dashboard";
 
 export default function DashboardPage() {
-  const { summary, loading, error } = useMonthlySummary();
-
-  const currentDate = new Date();
-  const monthHeader = format(currentDate, "MMMM yyyy").toUpperCase();
-  const daysRemaining = differenceInDays(endOfMonth(currentDate), currentDate);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (error || !summary) {
-    return (
-      <div className="space-y-6">
-        <header>
-          <h1 className="text-2xl font-bold tracking-tight">{monthHeader} USAGE</h1>
-        </header>
-        <div className="rounded-lg border bg-card p-6 text-center">
-          <p className="text-muted-foreground">
-            {error || "No usage data available for this month"}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const usagePercentage = calculateUsagePercentage(summary.estimatedApiCost);
-
   return (
     <div className="space-y-6">
-      {/* Header with month and usage meter */}
-      <header className="space-y-3">
-        <h1 className="text-2xl font-bold tracking-tight">{monthHeader} USAGE</h1>
-        <UsageMeter percentage={usagePercentage} daysRemaining={daysRemaining} />
-      </header>
+      {/* Section 1: Hero Metrics */}
+      <HeroMetricsRow />
 
-      {/* Metrics Grid - 6 cards */}
-      <MetricsGrid summary={summary} />
+      {/* Section 2: Today's Focus + Claude Max Limits + Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <TodayVsAverageCard />
+        <ClaudeMaxLimitsCard />
+        <QuickStatsCard />
+      </div>
 
-      {/* Activity heatmap and Top Projects side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ActivityHeatmap dailyActivity={summary.dailyActivity} month={currentDate} />
-        <TopProjects projects={summary.topProjects} />
+      {/* Section 3: Activity Patterns - cards stretch to match tallest */}
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <div className="md:col-span-1">
+          <ActivityHeatmap dailyActivity={mockSummary.dailyActivity} month={new Date()} />
+        </div>
+        <div className="md:col-span-2 [&>*]:h-full">
+          <HourlyDistributionCard />
+        </div>
+        <div className="md:col-span-3 [&>*]:h-full">
+          <CumulativeCostCard />
+        </div>
+      </div>
+
+      {/* Section 4: Projects & Time Insights - height determined by Top Projects */}
+      <div className="grid grid-cols-1 md:grid-cols-[5fr_3fr_7fr] gap-4">
+        <div>
+          <TopProjectsCard />
+        </div>
+        <div className="[&>*]:h-full">
+          <TimeDistributionCard />
+        </div>
+        <div className="[&>*]:h-full">
+          <HumanAIRatioCard />
+        </div>
       </div>
     </div>
   );
