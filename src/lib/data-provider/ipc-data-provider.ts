@@ -140,11 +140,26 @@ async function getProjectGroups(): Promise<ProjectGroup[]> {
 }
 
 /**
+ * Helper to handle IPC response errors
+ */
+function handleIpcResponse(response: SuccessResponse): void {
+  if (response.error) {
+    throw new Error(response.error);
+  }
+}
+
+/**
  * Update a project via IPC
  */
+
 async function updateProject(
   path: string,
-  data: { isHidden?: boolean; groupId?: string | null; isDefault?: boolean }
+  data: {
+    isHidden?: boolean;
+    groupId?: string | null;
+    mergedInto?: string | null;
+    mergeSources?: string[];
+  }
 ): Promise<Project | null> {
   if (!isElectron()) {
     return null;
@@ -156,9 +171,7 @@ async function updateProject(
       path,
       data.isHidden
     )) as SuccessResponse;
-    if (response.error) {
-      throw new Error(response.error);
-    }
+    handleIpcResponse(response);
   }
 
   if (data.groupId !== undefined) {
@@ -166,16 +179,22 @@ async function updateProject(
       path,
       data.groupId
     )) as SuccessResponse;
-    if (response.error) {
-      throw new Error(response.error);
-    }
+    handleIpcResponse(response);
   }
 
-  if (data.isDefault === true) {
-    const response = (await window.electron.projects.setDefault(path)) as SuccessResponse;
-    if (response.error) {
-      throw new Error(response.error);
-    }
+  // Handle merge operation (merge sources into this project as primary)
+  if (data.mergeSources && data.mergeSources.length > 0) {
+    const response = (await window.electron.projects.merge(
+      data.mergeSources,
+      path
+    )) as SuccessResponse;
+    handleIpcResponse(response);
+  }
+
+  // Handle unmerge operation (set mergedInto to null)
+  if (data.mergedInto === null) {
+    const response = (await window.electron.projects.unmerge(path)) as SuccessResponse;
+    handleIpcResponse(response);
   }
 
   // Return the updated project
@@ -432,7 +451,8 @@ export function createIpcDataProvider(): DataProvider {
         const data = variables as {
           isHidden?: boolean;
           groupId?: string | null;
-          isDefault?: boolean;
+          mergedInto?: string | null;
+          mergeSources?: string[];
         };
         const project = await updateProject(id as string, data);
         if (!project) {

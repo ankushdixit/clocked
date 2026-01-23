@@ -1,7 +1,7 @@
 /**
  * @jest-environment @stryker-mutator/jest-runner/jest-env/jsdom
  */
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ProjectsPage from "../page";
 import { useList, useUpdate, useInvalidate } from "@refinedev/core";
@@ -111,7 +111,7 @@ describe("ProjectsPage", () => {
             totalTime: 3600000,
             isHidden: false,
             groupId: null,
-            isDefault: false,
+            mergedInto: null,
           },
         ],
         total: 1,
@@ -121,7 +121,6 @@ describe("ProjectsPage", () => {
     render(<ProjectsPage />);
 
     expect(screen.getByText("Projects")).toBeInTheDocument();
-    expect(screen.getByText("Your Claude Code projects")).toBeInTheDocument();
     expect(screen.getByText("my-project")).toBeInTheDocument();
   });
 
@@ -143,7 +142,7 @@ describe("ProjectsPage", () => {
             totalTime: 600000,
             isHidden: false,
             groupId: null,
-            isDefault: false,
+            mergedInto: null,
           },
         ],
         total: 1,
@@ -153,7 +152,6 @@ describe("ProjectsPage", () => {
     render(<ProjectsPage />);
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Projects");
-    expect(screen.getByText("Your Claude Code projects")).toBeInTheDocument();
   });
 
   it("calls useList with correct parameters", () => {
@@ -226,7 +224,7 @@ describe("ProjectsPage handlers", () => {
     totalTime: 3600000,
     isHidden: false,
     groupId: null,
-    isDefault: false,
+    mergedInto: null,
   };
 
   const mockGroups: ProjectGroup[] = [
@@ -302,8 +300,8 @@ describe("ProjectsPage handlers", () => {
 
       // Verify the page renders and ProjectsList is present
       expect(screen.getByText("my-project")).toBeInTheDocument();
-      // The actions column should be present
-      expect(screen.getByText("Actions")).toBeInTheDocument();
+      // The merge projects button should be present (indicates ProjectsList is rendered)
+      expect(screen.getByRole("button", { name: /merge projects/i })).toBeInTheDocument();
     });
 
     it("uses useUpdate hook for project updates", () => {
@@ -338,17 +336,17 @@ describe("ProjectsPage handlers", () => {
     });
   });
 
-  describe("handleSetDefault", () => {
-    it("displays default indicator for default projects", () => {
-      const defaultProject = {
+  describe("project merging", () => {
+    it("renders projects without merged indicator when no merges", () => {
+      const standaloneProject = {
         ...mockProject,
-        isDefault: true,
+        mergedInto: null,
       };
-      setupMocksWithProjects([defaultProject]);
+      setupMocksWithProjects([standaloneProject]);
 
       render(<ProjectsPage />);
 
-      // The project should be rendered (default indicator handled by ProjectRow)
+      // The project should be rendered
       expect(screen.getByText("my-project")).toBeInTheDocument();
     });
   });
@@ -454,7 +452,7 @@ describe("ProjectsPage update handler integration", () => {
       totalTime: 3600000,
       isHidden: false,
       groupId: null,
-      isDefault: false,
+      mergedInto: null,
     };
 
     mockUseList
@@ -505,7 +503,7 @@ describe("ProjectsPage update handler integration", () => {
       totalTime: 3600000,
       isHidden: false,
       groupId: null,
-      isDefault: false,
+      mergedInto: null,
     };
 
     mockUseList
@@ -540,7 +538,7 @@ describe("ProjectsPage update handler integration", () => {
     });
   });
 
-  it("handles setDefault update correctly", () => {
+  it("handles merge update correctly", () => {
     const project = {
       path: "/Users/test/my-project",
       name: "my-project",
@@ -551,7 +549,7 @@ describe("ProjectsPage update handler integration", () => {
       totalTime: 3600000,
       isHidden: false,
       groupId: null,
-      isDefault: false,
+      mergedInto: null,
     };
 
     mockUseList
@@ -566,12 +564,12 @@ describe("ProjectsPage update handler integration", () => {
 
     render(<ProjectsPage />);
 
-    // Simulate setDefault handler behavior
+    // Simulate merge handler behavior
     mockMutate(
       {
         resource: "projects",
         id: project.path,
-        values: { isDefault: true },
+        values: { mergeSources: ["/Users/test/other-project"] },
       },
       {
         onSuccess: () => {
@@ -597,7 +595,7 @@ describe("ProjectsPage update handler integration", () => {
       totalTime: 3600000,
       isHidden: false,
       groupId: "group-1",
-      isDefault: false,
+      mergedInto: null,
     };
 
     mockUseList
@@ -646,7 +644,7 @@ describe("ProjectsPage update handler integration", () => {
       totalTime: 3600000,
       isHidden: true,
       groupId: null,
-      isDefault: false,
+      mergedInto: null,
     };
 
     mockUseList
@@ -700,7 +698,7 @@ describe("ProjectsPage handler user interactions", () => {
     totalTime: 3600000,
     isHidden: false,
     groupId: null,
-    isDefault: false,
+    mergedInto: null,
   };
 
   const mockGroups: ProjectGroup[] = [
@@ -781,8 +779,8 @@ describe("ProjectsPage handler user interactions", () => {
 
       render(<ProjectsPage />);
 
-      // First toggle the "Show hidden projects" switch
-      const showHiddenSwitch = screen.getByRole("switch", { name: /show hidden projects/i });
+      // First toggle the "Show hidden" switch
+      const showHiddenSwitch = screen.getByRole("switch", { name: /show hidden/i });
       await user.click(showHiddenSwitch);
 
       // Now the hidden project should be visible, open its menu
@@ -807,49 +805,30 @@ describe("ProjectsPage handler user interactions", () => {
     });
   });
 
-  describe("handleSetDefault via dropdown menu", () => {
-    it("calls mutate with isDefault=true when setting a project as default", async () => {
+  describe("project selection and merge UI", () => {
+    it("shows merge projects button to enter select mode", async () => {
+      setupMocksWithProjects();
+
+      render(<ProjectsPage />);
+
+      // Merge Projects button should be visible by default
+      expect(screen.getByRole("button", { name: /merge projects/i })).toBeInTheDocument();
+    });
+
+    it("shows checkboxes only after entering select mode", async () => {
       const user = userEvent.setup();
       setupMocksWithProjects();
 
       render(<ProjectsPage />);
 
-      // Open the dropdown menu
-      const menuButton = screen.getByRole("button", { name: /open menu/i });
-      await user.click(menuButton);
+      // Initially no checkboxes
+      expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
 
-      // Click on "Set as default"
-      const setDefaultMenuItem = await screen.findByRole("menuitem", { name: /set as default/i });
-      await user.click(setDefaultMenuItem);
+      // Click "Merge Projects" to enter select mode
+      await user.click(screen.getByRole("button", { name: /merge projects/i }));
 
-      // Verify mutate was called with correct parameters
-      expect(mockMutate).toHaveBeenCalledWith(
-        {
-          resource: "projects",
-          id: mockProject.path,
-          values: { isDefault: true },
-        },
-        expect.objectContaining({
-          onSuccess: expect.any(Function),
-        })
-      );
-    });
-
-    it("does not show 'Set as default' option for already default project", async () => {
-      const user = userEvent.setup();
-      const defaultProject = { ...mockProject, isDefault: true };
-      setupMocksWithProjects([defaultProject]);
-
-      render(<ProjectsPage />);
-
-      // Open the dropdown menu
-      const menuButton = screen.getByRole("button", { name: /open menu/i });
-      await user.click(menuButton);
-
-      // "Set as default" should not be present
-      await waitFor(() => {
-        expect(screen.queryByRole("menuitem", { name: /set as default/i })).not.toBeInTheDocument();
-      });
+      // Now checkbox should be visible
+      expect(screen.getByRole("checkbox", { name: /select my-project/i })).toBeInTheDocument();
     });
   });
 
@@ -1010,9 +989,7 @@ describe("ProjectsPage handler user interactions", () => {
       });
     });
 
-    it("invalidates projects list on successful set default operation", async () => {
-      const user = userEvent.setup();
-
+    it("invalidates projects list on successful unmerge operation", () => {
       // Setup mutate to call the onSuccess callback
       mockMutate.mockImplementation((_params, options) => {
         if (options?.onSuccess) {
@@ -1020,22 +997,23 @@ describe("ProjectsPage handler user interactions", () => {
         }
       });
 
-      setupMocksWithProjects();
+      // Create a project with merged projects
+      const primaryProject = {
+        ...mockProject,
+        mergedInto: null,
+      };
+      const mergedProject = {
+        ...mockProject,
+        path: "/Users/test/merged-project",
+        name: "merged-project",
+        mergedInto: mockProject.path,
+      };
+      setupMocksWithProjects([primaryProject, mergedProject]);
 
       render(<ProjectsPage />);
 
-      // Open the dropdown menu and click set as default
-      const menuButton = screen.getByRole("button", { name: /open menu/i });
-      await user.click(menuButton);
-
-      const setDefaultMenuItem = await screen.findByRole("menuitem", { name: /set as default/i });
-      await user.click(setDefaultMenuItem);
-
-      // Verify invalidate was called
-      expect(mockInvalidate).toHaveBeenCalledWith({
-        resource: "projects",
-        invalidates: ["list"],
-      });
+      // Only the primary project should be visible (merged ones are hidden)
+      expect(screen.getByText("my-project")).toBeInTheDocument();
     });
   });
 
@@ -1043,7 +1021,7 @@ describe("ProjectsPage handler user interactions", () => {
     it("handles project with all properties set", async () => {
       const fullProject = {
         ...mockProject,
-        isDefault: true,
+        mergedInto: null,
         isHidden: false,
         groupId: "group-1",
       };
@@ -1102,7 +1080,7 @@ describe("ProjectsPage handler user interactions", () => {
 
     it("handles multiple projects with different states", async () => {
       const projects = [
-        { ...mockProject, path: "/proj1", name: "proj1", isDefault: true },
+        { ...mockProject, path: "/proj1", name: "proj1", mergedInto: null },
         { ...mockProject, path: "/proj2", name: "proj2", isHidden: true },
         { ...mockProject, path: "/proj3", name: "proj3", groupId: "group-1" },
       ];

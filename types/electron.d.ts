@@ -11,7 +11,7 @@ export interface Project {
   totalTime: number; // Total session duration in milliseconds
   isHidden: boolean;
   groupId: string | null;
-  isDefault: boolean;
+  mergedInto: string | null; // Path of primary project if merged, null if standalone/primary
 }
 
 /**
@@ -160,8 +160,9 @@ declare global {
         getCount: () => Promise<CountResponse>;
         setHidden: (_path: string, _hidden: boolean) => Promise<SuccessResponse>;
         setGroup: (_path: string, _groupId: string | null) => Promise<SuccessResponse>;
-        setDefault: (_path: string) => Promise<SuccessResponse>;
-        getDefault: () => Promise<ProjectResponse>;
+        merge: (_sourcePaths: string[], _targetPath: string) => Promise<SuccessResponse>;
+        unmerge: (_path: string) => Promise<SuccessResponse>;
+        getMergedProjects: (_primaryPath: string) => Promise<ProjectsResponse>;
       };
 
       // Project Groups API

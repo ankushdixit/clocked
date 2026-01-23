@@ -16,7 +16,7 @@ const mockProjects: Project[] = [
     totalTime: 3600000,
     isHidden: false,
     groupId: null,
-    isDefault: false,
+    mergedInto: null,
   },
   {
     path: "/Users/test/project2",
@@ -28,7 +28,7 @@ const mockProjects: Project[] = [
     totalTime: 7200000,
     isHidden: false,
     groupId: null,
-    isDefault: false,
+    mergedInto: null,
   },
 ];
 
@@ -392,7 +392,9 @@ describe("ipc-data-provider", () => {
             ),
           setHidden: jest.fn().mockResolvedValue({ success: true }),
           setGroup: jest.fn().mockResolvedValue({ success: true }),
-          setDefault: jest.fn().mockResolvedValue({ success: true }),
+          merge: jest.fn().mockResolvedValue({ success: true }),
+          unmerge: jest.fn().mockResolvedValue({ success: true }),
+          getMergedProjects: jest.fn().mockResolvedValue({ projects: [] }),
         },
         sessions: {
           getAll: jest.fn().mockResolvedValue({ sessions: mockSessions }),
@@ -615,7 +617,9 @@ describe("ipc-data-provider", () => {
             ),
           setHidden: jest.fn().mockResolvedValue({ success: true }),
           setGroup: jest.fn().mockResolvedValue({ success: true }),
-          setDefault: jest.fn().mockResolvedValue({ success: true }),
+          merge: jest.fn().mockResolvedValue({ success: true }),
+          unmerge: jest.fn().mockResolvedValue({ success: true }),
+          getMergedProjects: jest.fn().mockResolvedValue({ projects: [] }),
         },
         sessions: {
           getAll: jest.fn().mockResolvedValue({ sessions: mockSessions }),
@@ -676,32 +680,36 @@ describe("ipc-data-provider", () => {
       expect(result.data).toMatchObject({ path: "/Users/test/project1" });
     });
 
-    it("sets project as default", async () => {
+    it("unmerges a project by setting mergedInto to null", async () => {
       const result = await ipcDataProvider.update({
         resource: "projects",
         id: "/Users/test/project1",
-        variables: { isDefault: true },
+        variables: { mergedInto: null },
         meta: {},
       });
-      expect(window.electron.projects.setDefault).toHaveBeenCalledWith("/Users/test/project1");
+      expect(window.electron.projects.unmerge).toHaveBeenCalledWith("/Users/test/project1");
       expect(result.data).toMatchObject({ path: "/Users/test/project1" });
     });
 
-    it("does not call setDefault when isDefault is false", async () => {
-      await ipcDataProvider.update({
+    it("merges projects by setting mergeSources", async () => {
+      const result = await ipcDataProvider.update({
         resource: "projects",
         id: "/Users/test/project1",
-        variables: { isDefault: false },
+        variables: { mergeSources: ["/Users/test/project2"] },
         meta: {},
       });
-      expect(window.electron.projects.setDefault).not.toHaveBeenCalled();
+      expect(window.electron.projects.merge).toHaveBeenCalledWith(
+        ["/Users/test/project2"],
+        "/Users/test/project1"
+      );
+      expect(result.data).toMatchObject({ path: "/Users/test/project1" });
     });
 
     it("handles multiple project updates at once", async () => {
       const result = await ipcDataProvider.update({
         resource: "projects",
         id: "/Users/test/project1",
-        variables: { isHidden: true, groupId: "group1", isDefault: true },
+        variables: { isHidden: true, groupId: "group1" },
         meta: {},
       });
       expect(window.electron.projects.setHidden).toHaveBeenCalledWith("/Users/test/project1", true);
@@ -709,7 +717,6 @@ describe("ipc-data-provider", () => {
         "/Users/test/project1",
         "group1"
       );
-      expect(window.electron.projects.setDefault).toHaveBeenCalledWith("/Users/test/project1");
       expect(result.data).toMatchObject({ path: "/Users/test/project1" });
     });
 
@@ -834,14 +841,16 @@ describe("ipc-data-provider", () => {
       ).rejects.toThrow("Failed to set group");
     });
 
-    it("throws error when setDefault fails", async () => {
+    it("throws error when unmerge fails", async () => {
       (window as { electron: unknown }).electron = {
         projects: {
           getAll: jest.fn().mockResolvedValue({ projects: mockProjects }),
           getByPath: jest.fn().mockResolvedValue({ project: mockProjects[0] }),
           setHidden: jest.fn().mockResolvedValue({ success: true }),
           setGroup: jest.fn().mockResolvedValue({ success: true }),
-          setDefault: jest.fn().mockResolvedValue({ error: "Failed to set default" }),
+          merge: jest.fn().mockResolvedValue({ success: true }),
+          unmerge: jest.fn().mockResolvedValue({ error: "Failed to unmerge" }),
+          getMergedProjects: jest.fn().mockResolvedValue({ projects: [] }),
         },
         sessions: {
           getAll: jest.fn().mockResolvedValue({ sessions: mockSessions }),
@@ -855,10 +864,39 @@ describe("ipc-data-provider", () => {
         ipcDataProvider.update({
           resource: "projects",
           id: "/Users/test/project1",
-          variables: { isDefault: true },
+          variables: { mergedInto: null },
           meta: {},
         })
-      ).rejects.toThrow("Failed to set default");
+      ).rejects.toThrow("Failed to unmerge");
+    });
+
+    it("throws error when merge fails", async () => {
+      (window as { electron: unknown }).electron = {
+        projects: {
+          getAll: jest.fn().mockResolvedValue({ projects: mockProjects }),
+          getByPath: jest.fn().mockResolvedValue({ project: mockProjects[0] }),
+          setHidden: jest.fn().mockResolvedValue({ success: true }),
+          setGroup: jest.fn().mockResolvedValue({ success: true }),
+          merge: jest.fn().mockResolvedValue({ error: "Failed to merge" }),
+          unmerge: jest.fn().mockResolvedValue({ success: true }),
+          getMergedProjects: jest.fn().mockResolvedValue({ projects: [] }),
+        },
+        sessions: {
+          getAll: jest.fn().mockResolvedValue({ sessions: mockSessions }),
+        },
+        groups: {
+          getAll: jest.fn().mockResolvedValue({ groups: [] }),
+        },
+      };
+
+      await expect(
+        ipcDataProvider.update({
+          resource: "projects",
+          id: "/Users/test/project1",
+          variables: { mergeSources: ["/Users/test/project2"] },
+          meta: {},
+        })
+      ).rejects.toThrow("Failed to merge");
     });
   });
 

@@ -56,12 +56,27 @@ export default function ProjectsPage() {
     );
   };
 
-  const handleSetDefault = (project: Project) => {
+  const handleMerge = (sourcePaths: string[], targetPath: string) => {
     updateProject(
       {
         resource: "projects",
-        id: project.path,
-        values: { isDefault: true },
+        id: targetPath,
+        values: { mergeSources: sourcePaths },
+      },
+      {
+        onSuccess: () => {
+          invalidate({ resource: "projects", invalidates: ["list"] });
+        },
+      }
+    );
+  };
+
+  const handleUnmerge = (path: string) => {
+    updateProject(
+      {
+        resource: "projects",
+        id: path,
+        values: { mergedInto: null },
       },
       {
         onSuccess: () => {
@@ -94,10 +109,7 @@ export default function ProjectsPage() {
   if (projects.length === 0) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Projects</h1>
-          <p className="text-muted-foreground">Your Claude Code projects</p>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
         <EmptyState
           title="No Claude Code sessions found"
           description="Start using Claude Code to see your activity here"
@@ -108,16 +120,14 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Projects</h1>
-        <p className="text-muted-foreground">Your Claude Code projects</p>
-      </div>
+      <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
       <ProjectsList
         projects={projects}
         groups={groups}
         onSetHidden={handleSetHidden}
         onSetGroup={handleSetGroup}
-        onSetDefault={handleSetDefault}
+        onMerge={handleMerge}
+        onUnmerge={handleUnmerge}
       />
     </div>
   );
