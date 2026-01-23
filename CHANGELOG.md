@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Redesigned Dashboard with new card-based UI components:
+  - **Hero Metrics Row**: 4 prominent metric cards (Sessions, Session Time, API Cost, Value) with sparklines and trend badges
+  - **Today vs Daily Average Card**: Comparison of today's metrics against daily averages
+  - **Claude Max Limits Card**: Visual usage trackers for Claude Max subscription limits
+  - **Quick Stats Card**: 6 quick stat items (Busiest Day, Longest Session, Peak Hour, Messages, Avg Session, Cost/Session)
+  - **Activity Heatmap**: Redesigned with responsive sizing
+  - **Session Distribution Card**: Hourly distribution bar chart
+  - **Cumulative Cost Card**: Line chart showing cumulative cost trend over time
+  - **Top Projects Card**: Sparkline-based project activity visualization
+  - **Time Distribution Card**: Morning/Afternoon/Evening/Night time breakdown
+  - **Human:AI Ratio Card**: Dual-axis bar chart comparing coding time and API costs
+  - **Sparkline Component**: Reusable SVG sparkline for inline trend visualization
+  - Mock data generators (`lib/mockData.ts`) for dashboard development
+
+- Comprehensive responsive design across all breakpoints:
+  - **Hero cards**: 2/3-1/3 width split with sparklines, responsive font sizes at 768px/896px/1024px/1536px
+  - **Combined grid sections**: Unified rows 2+3 into responsive 6-column grid with CSS order-based reflow
+  - **Mobile-first layouts**: Cards stack to full-width below 936px and 640px breakpoints
+  - **Adaptive trend badges**: Inline with icon between lg-xl, with sparkline otherwise
+  - Mobile browser e2e testing enabled in Playwright config
+
 - Monthly Usage Dashboard (`/`) with comprehensive usage analytics:
   - **Usage Meter**: Progress bar showing estimated usage percentage with color coding
   - **Metrics Grid**: 6 metric cards (Sessions, Session Time, API Cost, Subscription, Value Multiplier, Human:AI ratio)
@@ -59,10 +80,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Redesigned dashboard layout from metrics grid to card-based sections
+- Sidebar width reduced from 64 (w-64) to 52 (w-52) for more dashboard space
+- Dashboard header simplified to minimal title + date range display
 - Updated home page to display "Clocked is ready" with Electron connection status
 - Updated e2e tests to match new home page content
 - Added ESLint rules for Electron and type definition files
 
 ### Fixed
 
+- Accessibility color contrast issues (WCAG AA compliance):
+  - Trend badge text colors updated to emerald-700/red-700 for better contrast
+  - Neutral badge text changed to foreground/70 for improved readability
+  - Quick Stats labels and subvalues use foreground/70 for accessibility
+  - Highlighted values use emerald-600 instead of emerald-500
+
 ### Removed
+
+- Deprecated dashboard components: `MetricCard`, `MetricsGrid`, `TopProjects`, `UsageMeter`

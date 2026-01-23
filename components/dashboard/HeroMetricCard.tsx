@@ -28,9 +28,9 @@ export function HeroMetricCard({
   highlight,
 }: HeroMetricCardProps) {
   const trendColors = {
-    up: "text-emerald-600 bg-emerald-500/10",
-    down: "text-red-600 bg-red-500/10",
-    neutral: "text-muted-foreground bg-muted",
+    up: "text-emerald-700 bg-emerald-500/10",
+    down: "text-red-700 bg-red-500/10",
+    neutral: "text-foreground/70 bg-muted",
   };
 
   const TrendBadge = () => (
@@ -67,7 +67,7 @@ export function HeroMetricCard({
           <p
             className={cn(
               "text-3xl min-[768px]:text-2xl min-[896px]:text-3xl lg:text-2xl 2xl:text-3xl font-bold mt-1 truncate",
-              highlight && "text-emerald-500"
+              highlight && "text-emerald-600"
             )}
           >
             {value}

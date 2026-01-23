@@ -54,7 +54,9 @@ describe("HeroMetricsRow Component", () => {
 
     it("renders Sessions trend value", () => {
       render(<HeroMetricsRow />);
-      expect(screen.getByText("+12% vs last week")).toBeInTheDocument();
+      // TrendBadge renders twice (responsive layout), so use getAllByText
+      const trendValues = screen.getAllByText("+12% vs lw");
+      expect(trendValues.length).toBeGreaterThanOrEqual(1);
     });
 
     it("has Activity icon", () => {
@@ -83,7 +85,8 @@ describe("HeroMetricsRow Component", () => {
 
     it("renders Session Time trend value", () => {
       render(<HeroMetricsRow />);
-      expect(screen.getByText("+8% vs last week")).toBeInTheDocument();
+      const trendValues = screen.getAllByText("+8% vs lw");
+      expect(trendValues.length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -105,7 +108,8 @@ describe("HeroMetricsRow Component", () => {
 
     it("renders API Cost trend value (neutral)", () => {
       render(<HeroMetricsRow />);
-      expect(screen.getByText("$110/day avg")).toBeInTheDocument();
+      const trendValues = screen.getAllByText("$110/day");
+      expect(trendValues.length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -127,27 +131,28 @@ describe("HeroMetricsRow Component", () => {
 
     it("renders Value trend value", () => {
       render(<HeroMetricsRow />);
-      expect(screen.getByText("+14% vs last month")).toBeInTheDocument();
+      const trendValues = screen.getAllByText("+14% vs lm");
+      expect(trendValues.length).toBeGreaterThanOrEqual(1);
     });
 
     it("has highlight applied (emerald color on value)", () => {
       render(<HeroMetricsRow />);
       const valueElement = screen.getByText("25.33x");
-      expect(valueElement).toHaveClass("text-emerald-500");
+      expect(valueElement).toHaveClass("text-emerald-600");
     });
   });
 
   describe("Sparklines", () => {
     it("renders sparklines for all cards", () => {
       const { container } = render(<HeroMetricsRow />);
-      // Each card has a sparkline container (hidden below xl breakpoint)
-      const sparklineContainers = container.querySelectorAll(".hidden.xl\\:block");
+      // Sparklines are in the right side container (flex lg:hidden xl:flex)
+      const sparklineContainers = container.querySelectorAll(".flex.lg\\:hidden.xl\\:flex");
       expect(sparklineContainers.length).toBe(4);
     });
 
     it("each sparkline contains an SVG", () => {
       const { container } = render(<HeroMetricsRow />);
-      const sparklineContainers = container.querySelectorAll(".hidden.xl\\:block");
+      const sparklineContainers = container.querySelectorAll(".flex.lg\\:hidden.xl\\:flex");
       sparklineContainers.forEach((sparklineContainer) => {
         const svg = sparklineContainer.querySelector("svg");
         expect(svg).toBeInTheDocument();
@@ -156,7 +161,7 @@ describe("HeroMetricsRow Component", () => {
 
     it("sparklines have correct colors", () => {
       const { container } = render(<HeroMetricsRow />);
-      const polylines = container.querySelectorAll(".hidden.xl\\:block polyline");
+      const polylines = container.querySelectorAll(".flex.lg\\:hidden.xl\\:flex polyline");
       const colors = Array.from(polylines).map((p) => p.getAttribute("stroke"));
 
       // Sessions: emerald, Session Time: blue, API Cost: amber, Value: emerald
@@ -170,18 +175,20 @@ describe("HeroMetricsRow Component", () => {
     it("renders up trend icons for cards with positive trends", () => {
       const { container } = render(<HeroMetricsRow />);
       // Cards with 'up' trend should have emerald colored trend badges
-      const upTrendBadges = container.querySelectorAll(".text-emerald-600");
-      // Sessions, Session Time, and Value have up trends
-      expect(upTrendBadges.length).toBe(3);
+      // TrendBadge renders twice per card, so 3 cards * 2 = 6 badges
+      const upTrendBadges = container.querySelectorAll(".text-emerald-700");
+      // Sessions, Session Time, and Value have up trends (2 badges each)
+      expect(upTrendBadges.length).toBe(6);
     });
 
     it("renders neutral trend for API Cost card", () => {
       const { container } = render(<HeroMetricsRow />);
       // API Cost has neutral trend - find the outer badge span
-      const neutralBadge = container.querySelector(".text-muted-foreground.bg-muted");
-      expect(neutralBadge).toBeInTheDocument();
+      const neutralBadges = container.querySelectorAll(".text-foreground\\/70.bg-muted");
+      expect(neutralBadges.length).toBeGreaterThanOrEqual(1);
       // The text should be present in the badge
-      expect(screen.getByText("$110/day avg")).toBeInTheDocument();
+      const trendValues = screen.getAllByText("$110/day");
+      expect(trendValues.length).toBeGreaterThanOrEqual(1);
     });
   });
 

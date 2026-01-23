@@ -75,11 +75,9 @@ export function QuickStatsCard() {
               )}
             >
               <item.icon className={cn("w-4 h-4 mb-1 flex-shrink-0", item.color.split(" ")[1])} />
-              <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate">
-                {item.label}
-              </p>
+              <p className="text-[10px] sm:text-[11px] text-foreground/70 truncate">{item.label}</p>
               <p className="text-sm sm:text-base font-bold truncate">{item.value}</p>
-              <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate">
+              <p className="text-[10px] sm:text-[11px] text-foreground/70 truncate">
                 {item.subvalue}
               </p>
             </div>

@@ -119,18 +119,18 @@ describe("QuickStatsCard Component", () => {
     expect(janValue).toHaveClass("font-bold");
   });
 
-  it("renders stat labels with muted text color", () => {
+  it("renders stat labels with accessible text color", () => {
     render(<QuickStatsCard />);
-    // Labels should have text-muted-foreground class
+    // Labels should have text-foreground/70 class for better contrast
     const busiestDayLabel = screen.getByText("Busiest Day");
-    expect(busiestDayLabel).toHaveClass("text-muted-foreground");
+    expect(busiestDayLabel).toHaveClass("text-foreground/70");
   });
 
-  it("renders subvalues with muted text color", () => {
+  it("renders subvalues with accessible text color", () => {
     render(<QuickStatsCard />);
-    // Subvalues should have text-muted-foreground class
+    // Subvalues should have text-foreground/70 class for better contrast
     const sessionsSubvalue = screen.getByText("22 sessions");
-    expect(sessionsSubvalue).toHaveClass("text-muted-foreground");
+    expect(sessionsSubvalue).toHaveClass("text-foreground/70");
   });
 
   it("renders each stat item with rounded corners", () => {

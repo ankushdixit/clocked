@@ -33,8 +33,8 @@ export function HumanAIRatioCard() {
             <Users className="w-4 h-4 flex-shrink-0" />
             <span className="truncate">Human : AI Ratio</span>
           </CardTitle>
-          {/* Legend at top - hide on small screens */}
-          <div className="hidden sm:flex items-center gap-2 lg:gap-4 flex-shrink-0">
+          {/* Legend at top - always visible */}
+          <div className="flex items-center gap-2 lg:gap-4 flex-shrink-0">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded-full bg-emerald-500 flex-shrink-0" />
               <span className="text-xs text-muted-foreground whitespace-nowrap">
@@ -53,8 +53,8 @@ export function HumanAIRatioCard() {
       <CardContent className="flex-1 flex flex-col justify-end overflow-hidden min-w-0">
         {/* Chart with Y-axis on both sides */}
         <div className="flex overflow-hidden min-w-0">
-          {/* Left Y-axis - hide on very small screens */}
-          <div className="hidden sm:flex flex-col justify-between text-[10px] text-muted-foreground pr-2 w-8 text-right h-40 sm:h-52 flex-shrink-0">
+          {/* Left Y-axis */}
+          <div className="flex flex-col justify-between text-[10px] text-muted-foreground pr-2 w-8 text-right h-40 sm:h-52 flex-shrink-0">
             <span>100%</span>
             <span>50%</span>
             <span>0%</span>
@@ -125,23 +125,11 @@ export function HumanAIRatioCard() {
             </div>
           </div>
 
-          {/* Right Y-axis - hide on very small screens */}
-          <div className="hidden sm:flex flex-col justify-between text-[10px] text-muted-foreground pl-2 w-8 text-left h-40 sm:h-52 flex-shrink-0">
+          {/* Right Y-axis */}
+          <div className="flex flex-col justify-between text-[10px] text-muted-foreground pl-2 w-8 text-left h-40 sm:h-52 flex-shrink-0">
             <span>100%</span>
             <span>50%</span>
             <span>0%</span>
-          </div>
-        </div>
-
-        {/* Legend for small screens (shown below chart) */}
-        <div className="flex sm:hidden items-center justify-center gap-4 mt-2">
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-emerald-500" />
-            <span className="text-xs text-muted-foreground">Human {currentHuman}%</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-indigo-500" />
-            <span className="text-xs text-muted-foreground">AI {currentAI}%</span>
           </div>
         </div>
       </CardContent>

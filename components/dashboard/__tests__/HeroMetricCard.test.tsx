@@ -81,7 +81,7 @@ describe("HeroMetricCard Component", () => {
       const { container } = render(
         <HeroMetricCard {...defaultProps} trend="up" trendValue="+12% vs last week" />
       );
-      const trendBadge = container.querySelector(".text-emerald-600");
+      const trendBadge = container.querySelector(".text-emerald-700");
       expect(trendBadge).toBeInTheDocument();
       // Should contain a TrendingUp icon (check for SVG in trend badge)
       expect(trendBadge?.querySelector("svg")).toBeInTheDocument();
@@ -91,7 +91,7 @@ describe("HeroMetricCard Component", () => {
       const { container } = render(
         <HeroMetricCard {...defaultProps} trend="down" trendValue="-5% vs last week" />
       );
-      const trendBadge = container.querySelector(".text-red-600");
+      const trendBadge = container.querySelector(".text-red-700");
       expect(trendBadge).toBeInTheDocument();
       // Trend text appears in two spans (responsive)
       const trendTexts = screen.getAllByText("-5% vs last week");
@@ -104,7 +104,7 @@ describe("HeroMetricCard Component", () => {
       const { container } = render(
         <HeroMetricCard {...defaultProps} trend="neutral" trendValue="$110/day avg" />
       );
-      const trendBadge = container.querySelector(".text-muted-foreground.bg-muted");
+      const trendBadge = container.querySelector(".text-foreground\\/70.bg-muted");
       expect(trendBadge).toBeInTheDocument();
       // Trend text appears in two spans (responsive)
       const trendTexts = screen.getAllByText("$110/day avg");
@@ -119,41 +119,41 @@ describe("HeroMetricCard Component", () => {
     it("applies emerald text color when highlight is true", () => {
       render(<HeroMetricCard {...defaultProps} highlight={true} />);
       const valueElement = screen.getByText("349");
-      expect(valueElement).toHaveClass("text-emerald-500");
+      expect(valueElement).toHaveClass("text-emerald-600");
     });
 
     it("does not apply emerald color when highlight is false", () => {
       render(<HeroMetricCard {...defaultProps} highlight={false} />);
       const valueElement = screen.getByText("349");
-      expect(valueElement).not.toHaveClass("text-emerald-500");
+      expect(valueElement).not.toHaveClass("text-emerald-600");
     });
 
     it("does not apply emerald color when highlight is undefined", () => {
       render(<HeroMetricCard {...defaultProps} />);
       const valueElement = screen.getByText("349");
-      expect(valueElement).not.toHaveClass("text-emerald-500");
+      expect(valueElement).not.toHaveClass("text-emerald-600");
     });
   });
 
   describe("Sparkline Integration", () => {
     it("renders sparkline container", () => {
       const { container } = render(<HeroMetricCard {...defaultProps} />);
-      // Sparkline is in a hidden xl:block container (hidden below xl breakpoint)
-      const sparklineContainer = container.querySelector(".hidden.xl\\:block");
+      // Sparkline is in the right side container (flex lg:hidden xl:flex)
+      const sparklineContainer = container.querySelector(".flex.lg\\:hidden.xl\\:flex");
       expect(sparklineContainer).toBeInTheDocument();
     });
 
     it("passes sparklineData to Sparkline component", () => {
       const { container } = render(<HeroMetricCard {...defaultProps} />);
-      // Sparkline renders an SVG inside the container
-      const sparklineContainer = container.querySelector(".hidden.xl\\:block");
+      // Sparkline renders an SVG inside the right side container
+      const sparklineContainer = container.querySelector(".flex.lg\\:hidden.xl\\:flex");
       const sparklineSvg = sparklineContainer?.querySelector("svg");
       expect(sparklineSvg).toBeInTheDocument();
     });
 
     it("passes sparklineColor to Sparkline component", () => {
       const { container } = render(<HeroMetricCard {...defaultProps} sparklineColor="#3b82f6" />);
-      const sparklineContainer = container.querySelector(".hidden.xl\\:block");
+      const sparklineContainer = container.querySelector(".flex.lg\\:hidden.xl\\:flex");
       const polyline = sparklineContainer?.querySelector("polyline");
       expect(polyline).toHaveAttribute("stroke", "#3b82f6");
     });
@@ -191,24 +191,23 @@ describe("HeroMetricCard Component", () => {
   });
 
   describe("Responsive Behavior", () => {
-    it("trend badge is hidden on mobile (has md:flex)", () => {
+    it("inline trend badge is shown between lg and xl (has lg:flex xl:hidden)", () => {
       const { container } = render(<HeroMetricCard {...defaultProps} />);
-      const trendContainer = container.querySelector(".hidden.md\\:flex");
-      expect(trendContainer).toBeInTheDocument();
+      const inlineTrendContainer = container.querySelector(".hidden.lg\\:flex.xl\\:hidden");
+      expect(inlineTrendContainer).toBeInTheDocument();
     });
 
-    it("sparkline is hidden below xl breakpoint (has xl:block)", () => {
+    it("sparkline container is hidden between lg and xl (has lg:hidden xl:flex)", () => {
       const { container } = render(<HeroMetricCard {...defaultProps} />);
-      const sparklineContainer = container.querySelector(".hidden.xl\\:block");
+      const sparklineContainer = container.querySelector(".flex.lg\\:hidden.xl\\:flex");
       expect(sparklineContainer).toBeInTheDocument();
     });
 
-    it("shows short trend text on smaller screens", () => {
-      render(<HeroMetricCard {...defaultProps} trendValueShort="+12% vs LW" />);
-      // Short version is shown in xl:hidden span
-      expect(screen.getByText("+12% vs LW")).toBeInTheDocument();
-      // Full version is shown in hidden xl:inline span
-      expect(screen.getByText("+12% vs last week")).toBeInTheDocument();
+    it("shows trend text in badge", () => {
+      render(<HeroMetricCard {...defaultProps} />);
+      // TrendBadge renders twice (responsive layout), so use getAllByText
+      const trendValues = screen.getAllByText("+12% vs last week");
+      expect(trendValues.length).toBeGreaterThanOrEqual(1);
     });
   });
 

@@ -130,10 +130,10 @@ describe("HumanAIRatioCard Component", () => {
 
   it("renders Y-axis containers on both sides", () => {
     const { container } = render(<HumanAIRatioCard />);
-    // Left Y-axis has text-right and sm:flex, right Y-axis has text-left and sm:flex
-    // Y-axis containers are hidden on mobile (hidden sm:flex)
-    const leftYAxis = container.querySelector(".hidden.sm\\:flex.text-right");
-    const rightYAxis = container.querySelector(".hidden.sm\\:flex.text-left");
+    // Left Y-axis has text-right, right Y-axis has text-left
+    // Y-axis containers are always visible (flex)
+    const leftYAxis = container.querySelector(".flex.flex-col.text-right");
+    const rightYAxis = container.querySelector(".flex.flex-col.text-left");
     expect(leftYAxis).toBeInTheDocument();
     expect(rightYAxis).toBeInTheDocument();
   });

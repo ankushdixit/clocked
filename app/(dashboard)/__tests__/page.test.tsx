@@ -91,7 +91,7 @@ describe("DashboardPage Component", () => {
       expect(screen.getByText("25.33x")).toBeInTheDocument();
       // Value should be highlighted (emerald)
       const valueElement = screen.getByText("25.33x");
-      expect(valueElement).toHaveClass("text-emerald-500");
+      expect(valueElement).toHaveClass("text-emerald-600");
     });
   });
 
@@ -153,18 +153,18 @@ describe("DashboardPage Component", () => {
       expect(wrapper).toBeInTheDocument();
     });
 
-    it("renders responsive grid for section 2", () => {
+    it("renders responsive grid for combined section 2+3", () => {
       const { container } = render(<DashboardPage />);
-      // Section 2 should have lg:grid-cols-3 (stacks below lg breakpoint)
-      const section2Grid = container.querySelector(".grid.lg\\:grid-cols-3");
-      expect(section2Grid).toBeInTheDocument();
+      // Combined section uses grid-cols-5 lg:grid-cols-2 xl:grid-cols-6
+      const combinedGrid = container.querySelector(".grid.grid-cols-5");
+      expect(combinedGrid).toBeInTheDocument();
     });
 
-    it("renders responsive grid for section 3", () => {
+    it("renders responsive grid for section 4", () => {
       const { container } = render(<DashboardPage />);
-      // Section 3 should have lg:grid-cols-6
-      const section3Grid = container.querySelector(".grid.lg\\:grid-cols-6");
-      expect(section3Grid).toBeInTheDocument();
+      // Section 4 uses grid-cols-1 with min-[936px]:grid-cols-2
+      const section4Grid = container.querySelector(".grid.grid-cols-1");
+      expect(section4Grid).toBeInTheDocument();
     });
   });
 });
