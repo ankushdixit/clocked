@@ -327,6 +327,105 @@ async function getGroupList<TData>(): Promise<{ data: TData[]; total: number }> 
 }
 
 /**
+ * Handle getOne for projects resource
+ */
+async function getOneProject<TData>(id: string | number): Promise<{ data: TData }> {
+  const project = await getProjectByPath(id as string);
+  if (!project) {
+    throw new Error(`Project with path "${id}" not found`);
+  }
+  return { data: project as unknown as TData };
+}
+
+/**
+ * Handle getOne for sessions resource
+ */
+async function getOneSession<TData>(id: string | number): Promise<{ data: TData }> {
+  // For sessions, we need to get all sessions and find by ID
+  // This is not ideal for performance, but works for now
+  const sessions = await getSessions();
+  const session = sessions.find((s) => s.id === id);
+  if (!session) {
+    throw new Error(`Session with id "${id}" not found`);
+  }
+  return { data: session as unknown as TData };
+}
+
+/**
+ * Handle getOne for groups resource
+ */
+async function getOneGroup<TData>(id: string | number): Promise<{ data: TData }> {
+  const groups = await getProjectGroups();
+  const group = groups.find((g) => g.id === id);
+  if (!group) {
+    throw new Error(`Group with id "${id}" not found`);
+  }
+  return { data: group as unknown as TData };
+}
+
+/**
+ * Handle getMany for projects resource
+ */
+async function getManyProjects<TData>(ids: (string | number)[]): Promise<{ data: TData[] }> {
+  const projects = await getProjects();
+  const filteredProjects = projects.filter((p) => ids.includes(p.path));
+  return { data: filteredProjects as unknown as TData[] };
+}
+
+/**
+ * Handle getMany for sessions resource
+ */
+async function getManySessions<TData>(ids: (string | number)[]): Promise<{ data: TData[] }> {
+  const sessions = await getSessions();
+  const filteredSessions = sessions.filter((s) => ids.includes(s.id));
+  return { data: filteredSessions as unknown as TData[] };
+}
+
+/**
+ * Handle getMany for groups resource
+ */
+async function getManyGroups<TData>(ids: (string | number)[]): Promise<{ data: TData[] }> {
+  const groups = await getProjectGroups();
+  const filteredGroups = groups.filter((g) => ids.includes(g.id));
+  return { data: filteredGroups as unknown as TData[] };
+}
+
+/**
+ * Handle update for projects resource
+ */
+async function updateProjectResource<TData>(
+  id: string | number,
+  variables: unknown
+): Promise<{ data: TData }> {
+  const data = variables as {
+    isHidden?: boolean;
+    groupId?: string | null;
+    mergedInto?: string | null;
+    mergeSources?: string[];
+  };
+  const project = await updateProject(id as string, data);
+  if (!project) {
+    throw new Error(`Project with path "${id}" not found`);
+  }
+  return { data: project as unknown as TData };
+}
+
+/**
+ * Handle update for groups resource
+ */
+async function updateGroupResource<TData>(
+  id: string | number,
+  variables: unknown
+): Promise<{ data: TData }> {
+  const data = variables as { name?: string; color?: string | null; sortOrder?: number };
+  const group = await updateGroup(id as string, data);
+  if (!group) {
+    throw new Error(`Group with id "${id}" not found`);
+  }
+  return { data: group as unknown as TData };
+}
+
+/**
  * Create the IPC data provider for Refine
  *
  * Supports two resources:
@@ -343,84 +442,23 @@ export function createIpcDataProvider(): DataProvider {
       const currentPage = pagination?.currentPage ?? 1;
       const pageSize = pagination?.pageSize ?? 10;
 
-      if (resource === "projects") {
-        return getProjectList<TData>(currentPage, pageSize);
-      }
-
-      if (resource === "sessions") {
-        return getSessionList<TData>(currentPage, pageSize, filters);
-      }
-
-      if (resource === "groups") {
-        return getGroupList<TData>();
-      }
-
+      if (resource === "projects") return getProjectList<TData>(currentPage, pageSize);
+      if (resource === "sessions") return getSessionList<TData>(currentPage, pageSize, filters);
+      if (resource === "groups") return getGroupList<TData>();
       throw new Error(`Resource "${resource}" not supported`);
     },
 
     getOne: async <TData extends BaseRecord = BaseRecord>({ resource, id }: GetOneParams) => {
-      if (resource === "projects") {
-        const project = await getProjectByPath(id as string);
-        if (!project) {
-          throw new Error(`Project with path "${id}" not found`);
-        }
-        return {
-          data: project as unknown as TData,
-        };
-      }
-
-      if (resource === "sessions") {
-        // For sessions, we need to get all sessions and find by ID
-        // This is not ideal for performance, but works for now
-        const sessions = await getSessions();
-        const session = sessions.find((s) => s.id === id);
-        if (!session) {
-          throw new Error(`Session with id "${id}" not found`);
-        }
-        return {
-          data: session as unknown as TData,
-        };
-      }
-
-      if (resource === "groups") {
-        const groups = await getProjectGroups();
-        const group = groups.find((g) => g.id === id);
-        if (!group) {
-          throw new Error(`Group with id "${id}" not found`);
-        }
-        return {
-          data: group as unknown as TData,
-        };
-      }
-
+      if (resource === "projects") return getOneProject<TData>(id);
+      if (resource === "sessions") return getOneSession<TData>(id);
+      if (resource === "groups") return getOneGroup<TData>(id);
       throw new Error(`Resource "${resource}" not supported`);
     },
 
     getMany: async <TData extends BaseRecord = BaseRecord>({ resource, ids }: GetManyParams) => {
-      if (resource === "projects") {
-        const projects = await getProjects();
-        const filteredProjects = projects.filter((p) => ids.includes(p.path));
-        return {
-          data: filteredProjects as unknown as TData[],
-        };
-      }
-
-      if (resource === "sessions") {
-        const sessions = await getSessions();
-        const filteredSessions = sessions.filter((s) => ids.includes(s.id));
-        return {
-          data: filteredSessions as unknown as TData[],
-        };
-      }
-
-      if (resource === "groups") {
-        const groups = await getProjectGroups();
-        const filteredGroups = groups.filter((g) => ids.includes(g.id));
-        return {
-          data: filteredGroups as unknown as TData[],
-        };
-      }
-
+      if (resource === "projects") return getManyProjects<TData>(ids);
+      if (resource === "sessions") return getManySessions<TData>(ids);
+      if (resource === "groups") return getManyGroups<TData>(ids);
       throw new Error(`Resource "${resource}" not supported`);
     },
 
@@ -434,11 +472,8 @@ export function createIpcDataProvider(): DataProvider {
       if (resource === "groups") {
         const { name, color } = variables as { name: string; color?: string | null };
         const group = await createGroup(name, color);
-        return {
-          data: group as unknown as TData,
-        };
+        return { data: group as unknown as TData };
       }
-
       throw new Error(`Create operation not supported for resource "${resource}"`);
     },
 
@@ -447,33 +482,8 @@ export function createIpcDataProvider(): DataProvider {
       id,
       variables,
     }: UpdateParams<TVariables>) => {
-      if (resource === "projects") {
-        const data = variables as {
-          isHidden?: boolean;
-          groupId?: string | null;
-          mergedInto?: string | null;
-          mergeSources?: string[];
-        };
-        const project = await updateProject(id as string, data);
-        if (!project) {
-          throw new Error(`Project with path "${id}" not found`);
-        }
-        return {
-          data: project as unknown as TData,
-        };
-      }
-
-      if (resource === "groups") {
-        const data = variables as { name?: string; color?: string | null; sortOrder?: number };
-        const group = await updateGroup(id as string, data);
-        if (!group) {
-          throw new Error(`Group with id "${id}" not found`);
-        }
-        return {
-          data: group as unknown as TData,
-        };
-      }
-
+      if (resource === "projects") return updateProjectResource<TData>(id, variables);
+      if (resource === "groups") return updateGroupResource<TData>(id, variables);
       throw new Error(`Update operation not supported for resource "${resource}"`);
     },
 
@@ -486,11 +496,8 @@ export function createIpcDataProvider(): DataProvider {
     }) => {
       if (resource === "groups") {
         await deleteGroup(id as string);
-        return {
-          data: { id } as unknown as TData,
-        };
+        return { data: { id } as unknown as TData };
       }
-
       throw new Error(`Delete operation not supported for resource "${resource}"`);
     },
 

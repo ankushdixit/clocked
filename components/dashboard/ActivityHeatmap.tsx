@@ -27,6 +27,8 @@ const INTENSITY_LEVELS = [
   "bg-emerald-700", // level 6 - darkest green
 ];
 
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 /**
  * Get intensity level based on relative position in the data range
  * @param count - session count for this day
@@ -55,6 +57,121 @@ interface TooltipData {
   y: number;
 }
 
+/**
+ * Group days into weeks, with null padding for alignment
+ */
+function groupDaysIntoWeeks(days: Date[]): (Date | null)[][] {
+  const result: (Date | null)[][] = [];
+  let currentWeek: (Date | null)[] = [];
+
+  // Add empty cells for days before the first of the month
+  const firstDayOfWeek = getDay(days[0]);
+  for (let i = 0; i < firstDayOfWeek; i++) {
+    currentWeek.push(null);
+  }
+
+  days.forEach((day) => {
+    currentWeek.push(day);
+    if (currentWeek.length === 7) {
+      result.push(currentWeek);
+      currentWeek = [];
+    }
+  });
+
+  // Add remaining days to last week
+  if (currentWeek.length > 0) {
+    while (currentWeek.length < 7) {
+      currentWeek.push(null);
+    }
+    result.push(currentWeek);
+  }
+
+  return result;
+}
+
+/** Day labels row component */
+function DayLabels() {
+  return (
+    <div className="flex gap-0.5 @[200px]:gap-1 mb-1">
+      {DAY_NAMES.map((name) => (
+        <div
+          key={name}
+          className="w-4 @[180px]:w-5 @[220px]:w-6 h-4 text-[10px] text-muted-foreground text-center"
+        >
+          {name[0]}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Legend component showing intensity scale */
+function HeatmapLegend() {
+  return (
+    <div className="flex items-center justify-between mt-4 text-[10px] text-muted-foreground">
+      <span>Less</span>
+      <div className="flex items-center gap-0.5">
+        {INTENSITY_LEVELS.map((level, i) => (
+          <div key={i} className={cn("w-2 h-2 rounded-sm flex-shrink-0", level)} />
+        ))}
+      </div>
+      <span>More</span>
+    </div>
+  );
+}
+
+/** Tooltip component for displaying day details */
+function HeatmapTooltip({ tooltip }: { tooltip: TooltipData }) {
+  return (
+    <div
+      className="fixed z-50 px-2 py-1 text-xs bg-popover text-popover-foreground rounded shadow-md border pointer-events-none"
+      style={{
+        left: tooltip.x,
+        top: tooltip.y,
+        transform: "translate(-50%, -100%)",
+      }}
+    >
+      <div className="font-medium">{tooltip.date}</div>
+      <div className="text-muted-foreground">
+        {tooltip.sessionCount} {tooltip.sessionCount === 1 ? "session" : "sessions"}
+        {tooltip.totalTime > 0 && `, ${formatDuration(tooltip.totalTime)}`}
+      </div>
+    </div>
+  );
+}
+
+interface DayCellProps {
+  day: Date;
+  sessionCount: number;
+  maxSessionCount: number;
+  onMouseEnter: (e: React.MouseEvent<HTMLDivElement>, day: Date) => void;
+  onMouseLeave: () => void;
+}
+
+/** Individual day cell in the heatmap */
+function DayCell({ day, sessionCount, maxSessionCount, onMouseEnter, onMouseLeave }: DayCellProps) {
+  const dateStr = format(day, "yyyy-MM-dd");
+  const isToday = isSameDay(day, new Date());
+
+  return (
+    <div
+      key={dateStr}
+      className={cn(
+        "w-4 @[180px]:w-5 @[220px]:w-6 h-6 rounded-sm cursor-pointer transition-colors",
+        getIntensityLevel(sessionCount, maxSessionCount),
+        isToday && "ring-1 ring-foreground ring-offset-1 ring-offset-background"
+      )}
+      onMouseEnter={(e) => onMouseEnter(e, day)}
+      onMouseLeave={onMouseLeave}
+    />
+  );
+}
+
+/** Empty cell placeholder */
+function EmptyCell({ index }: { index: number }) {
+  return <div key={`empty-${index}`} className="w-4 @[180px]:w-5 @[220px]:w-6 h-6" />;
+}
+
 export function ActivityHeatmap({ dailyActivity, month = new Date() }: ActivityHeatmapProps) {
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
 
@@ -73,42 +190,13 @@ export function ActivityHeatmap({ dailyActivity, month = new Date() }: ActivityH
     return Math.max(...dailyActivity.map((a) => a.sessionCount));
   }, [dailyActivity]);
 
-  // Get all days in the month
-  const days = useMemo(() => {
+  // Get all days in the month and group into weeks
+  const weeks = useMemo(() => {
     const monthStart = startOfMonth(month);
     const monthEnd = endOfMonth(month);
-    return eachDayOfInterval({ start: monthStart, end: monthEnd });
+    const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    return groupDaysIntoWeeks(days);
   }, [month]);
-
-  // Group days by week (0 = Sunday, 6 = Saturday)
-  const weeks = useMemo(() => {
-    const result: (Date | null)[][] = [];
-    let currentWeek: (Date | null)[] = [];
-
-    // Add empty cells for days before the first of the month
-    const firstDayOfWeek = getDay(days[0]);
-    for (let i = 0; i < firstDayOfWeek; i++) {
-      currentWeek.push(null);
-    }
-
-    days.forEach((day) => {
-      currentWeek.push(day);
-      if (currentWeek.length === 7) {
-        result.push(currentWeek);
-        currentWeek = [];
-      }
-    });
-
-    // Add remaining days to last week
-    if (currentWeek.length > 0) {
-      while (currentWeek.length < 7) {
-        currentWeek.push(null);
-      }
-      result.push(currentWeek);
-    }
-
-    return result;
-  }, [days]);
 
   const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>, day: Date) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -124,11 +212,10 @@ export function ActivityHeatmap({ dailyActivity, month = new Date() }: ActivityH
     });
   };
 
-  const handleMouseLeave = () => {
-    setTooltip(null);
-  };
+  const handleMouseLeave = () => setTooltip(null);
 
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const getSessionCount = (day: Date) =>
+    activityMap.get(format(day, "yyyy-MM-dd"))?.sessionCount ?? 0;
 
   return (
     <Card className="overflow-hidden">
@@ -140,82 +227,29 @@ export function ActivityHeatmap({ dailyActivity, month = new Date() }: ActivityH
       </CardHeader>
       <CardContent className="flex justify-center @container px-1">
         <div className="relative inline-flex flex-col">
-          {/* Day labels - width responsive to container, height fixed */}
-          <div className="flex gap-0.5 @[200px]:gap-1 mb-1">
-            {dayNames.map((name) => (
-              <div
-                key={name}
-                className="w-4 @[180px]:w-5 @[220px]:w-6 h-4 text-[10px] text-muted-foreground text-center"
-              >
-                {name[0]}
-              </div>
-            ))}
-          </div>
-
-          {/* Weeks grid - width responsive to container, height fixed */}
+          <DayLabels />
           <div className="space-y-1">
             {weeks.map((week, weekIndex) => (
               <div key={weekIndex} className="flex gap-0.5 @[200px]:gap-1">
-                {week.map((day, dayIndex) => {
-                  if (!day) {
-                    return (
-                      <div
-                        key={`empty-${dayIndex}`}
-                        className="w-4 @[180px]:w-5 @[220px]:w-6 h-6"
-                      />
-                    );
-                  }
-
-                  const dateStr = format(day, "yyyy-MM-dd");
-                  const activity = activityMap.get(dateStr);
-                  const sessionCount = activity?.sessionCount ?? 0;
-                  const isToday = isSameDay(day, new Date());
-
-                  return (
-                    <div
-                      key={dateStr}
-                      className={cn(
-                        "w-4 @[180px]:w-5 @[220px]:w-6 h-6 rounded-sm cursor-pointer transition-colors",
-                        getIntensityLevel(sessionCount, maxSessionCount),
-                        isToday && "ring-1 ring-foreground ring-offset-1 ring-offset-background"
-                      )}
-                      onMouseEnter={(e) => handleMouseEnter(e, day)}
+                {week.map((day, dayIndex) =>
+                  day ? (
+                    <DayCell
+                      key={format(day, "yyyy-MM-dd")}
+                      day={day}
+                      sessionCount={getSessionCount(day)}
+                      maxSessionCount={maxSessionCount}
+                      onMouseEnter={handleMouseEnter}
                       onMouseLeave={handleMouseLeave}
                     />
-                  );
-                })}
+                  ) : (
+                    <EmptyCell key={`empty-${dayIndex}`} index={dayIndex} />
+                  )
+                )}
               </div>
             ))}
           </div>
-
-          {/* Legend - aligned with grid width */}
-          <div className="flex items-center justify-between mt-4 text-[10px] text-muted-foreground">
-            <span>Less</span>
-            <div className="flex items-center gap-0.5">
-              {INTENSITY_LEVELS.map((level, i) => (
-                <div key={i} className={cn("w-2 h-2 rounded-sm flex-shrink-0", level)} />
-              ))}
-            </div>
-            <span>More</span>
-          </div>
-
-          {/* Tooltip */}
-          {tooltip && (
-            <div
-              className="fixed z-50 px-2 py-1 text-xs bg-popover text-popover-foreground rounded shadow-md border pointer-events-none"
-              style={{
-                left: tooltip.x,
-                top: tooltip.y,
-                transform: "translate(-50%, -100%)",
-              }}
-            >
-              <div className="font-medium">{tooltip.date}</div>
-              <div className="text-muted-foreground">
-                {tooltip.sessionCount} {tooltip.sessionCount === 1 ? "session" : "sessions"}
-                {tooltip.totalTime > 0 && `, ${formatDuration(tooltip.totalTime)}`}
-              </div>
-            </div>
-          )}
+          <HeatmapLegend />
+          {tooltip && <HeatmapTooltip tooltip={tooltip} />}
         </div>
       </CardContent>
     </Card>

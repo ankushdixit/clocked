@@ -306,8 +306,8 @@ describe("ProjectsList", () => {
       renderProjectsList(projectsWithGroups, mockGroupsWithProjects);
 
       expect(screen.getByText("Work Projects")).toBeInTheDocument();
-      // Check that project count is shown somewhere (may have multiple instances)
-      expect(screen.getAllByText("(1)").length).toBeGreaterThan(0);
+      // Check that project count is shown (count without parentheses in new design)
+      expect(screen.getAllByText("1").length).toBeGreaterThan(0);
     });
 
     it("displays ungrouped section when there are both grouped and ungrouped projects", () => {

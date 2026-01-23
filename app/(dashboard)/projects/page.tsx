@@ -6,6 +6,38 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Loader2 } from "lucide-react";
 import type { Project, ProjectGroup } from "@/types/electron";
 
+/** Loading spinner displayed while fetching projects */
+function LoadingState() {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
+/** Error state when projects fail to load */
+function ErrorState() {
+  return (
+    <EmptyState
+      title="Error loading projects"
+      description="There was an error loading your projects. Please try again."
+    />
+  );
+}
+
+/** Empty state when no projects exist */
+function NoProjectsState() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
+      <EmptyState
+        title="No Claude Code sessions found"
+        description="Start using Claude Code to see your activity here"
+      />
+    </div>
+  );
+}
+
 /**
  * Projects list page
  * Displays all Claude Code projects with sortable columns
@@ -87,35 +119,18 @@ export default function ProjectsPage() {
   };
 
   if (projectsQuery.isLoading || groupsQuery.isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   if (projectsQuery.isError) {
-    return (
-      <EmptyState
-        title="Error loading projects"
-        description="There was an error loading your projects. Please try again."
-      />
-    );
+    return <ErrorState />;
   }
 
   const projects = projectsResult.data ?? [];
   const groups = groupsResult.data ?? [];
 
   if (projects.length === 0) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
-        <EmptyState
-          title="No Claude Code sessions found"
-          description="Start using Claude Code to see your activity here"
-        />
-      </div>
-    );
+    return <NoProjectsState />;
   }
 
   return (
