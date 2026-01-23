@@ -34,25 +34,29 @@ export function TodayVsAverageCard() {
   ];
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="h-full flex flex-col overflow-hidden">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Calendar className="w-4 h-4" />
-          Today vs Daily Average
+          <Calendar className="w-4 h-4 flex-shrink-0" />
+          <span className="truncate">Today vs Daily Average</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col justify-center space-y-5">
+      <CardContent className="flex-1 flex flex-col justify-center space-y-5 overflow-hidden">
         {metrics.map((metric) => {
           const percentage = metric.average > 0 ? (metric.today / metric.average) * 100 : 0;
 
           return (
-            <div key={metric.label} className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">{metric.label}</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-foreground">{metric.format(metric.today)}</span>
-                  <span className="text-muted-foreground">/</span>
-                  <span className="text-muted-foreground">{metric.format(metric.average)}</span>
+            <div key={metric.label} className="space-y-2 min-w-0">
+              <div className="flex items-center justify-between text-sm gap-2 min-w-0">
+                <span className="font-medium flex-shrink-0">{metric.label}</span>
+                <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                  <span className="font-bold text-foreground truncate">
+                    {metric.format(metric.today)}
+                  </span>
+                  <span className="text-muted-foreground flex-shrink-0">/</span>
+                  <span className="text-muted-foreground truncate">
+                    {metric.format(metric.average)}
+                  </span>
                 </div>
               </div>
               <div className="h-3 bg-muted rounded-full overflow-hidden shadow-inner">

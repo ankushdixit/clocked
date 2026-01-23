@@ -140,23 +140,23 @@ describe("HeroMetricsRow Component", () => {
   describe("Sparklines", () => {
     it("renders sparklines for all cards", () => {
       const { container } = render(<HeroMetricsRow />);
-      // Each card has a sparkline container (hidden on mobile, visible on lg)
-      const sparklineContainers = container.querySelectorAll(".hidden.lg\\:block");
+      // Each card has a sparkline container (hidden below xl breakpoint)
+      const sparklineContainers = container.querySelectorAll(".hidden.xl\\:block");
       expect(sparklineContainers.length).toBe(4);
     });
 
     it("each sparkline contains an SVG", () => {
       const { container } = render(<HeroMetricsRow />);
-      const sparklineContainers = container.querySelectorAll(".hidden.lg\\:block");
-      sparklineContainers.forEach((container) => {
-        const svg = container.querySelector("svg");
+      const sparklineContainers = container.querySelectorAll(".hidden.xl\\:block");
+      sparklineContainers.forEach((sparklineContainer) => {
+        const svg = sparklineContainer.querySelector("svg");
         expect(svg).toBeInTheDocument();
       });
     });
 
     it("sparklines have correct colors", () => {
       const { container } = render(<HeroMetricsRow />);
-      const polylines = container.querySelectorAll(".hidden.lg\\:block polyline");
+      const polylines = container.querySelectorAll(".hidden.xl\\:block polyline");
       const colors = Array.from(polylines).map((p) => p.getAttribute("stroke"));
 
       // Sessions: emerald, Session Time: blue, API Cost: amber, Value: emerald
@@ -176,10 +176,12 @@ describe("HeroMetricsRow Component", () => {
     });
 
     it("renders neutral trend for API Cost card", () => {
-      render(<HeroMetricsRow />);
-      // API Cost has neutral trend
-      const neutralBadge = screen.getByText("$110/day avg").closest("span");
-      expect(neutralBadge).toHaveClass("text-muted-foreground");
+      const { container } = render(<HeroMetricsRow />);
+      // API Cost has neutral trend - find the outer badge span
+      const neutralBadge = container.querySelector(".text-muted-foreground.bg-muted");
+      expect(neutralBadge).toBeInTheDocument();
+      // The text should be present in the badge
+      expect(screen.getByText("$110/day avg")).toBeInTheDocument();
     });
   });
 

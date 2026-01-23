@@ -11,14 +11,14 @@ export function HourlyDistributionCard() {
   const peakHour = hourlyData.find((h) => h.sessions === maxSessions)?.hour ?? 0;
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="h-full flex flex-col overflow-hidden">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Clock className="w-4 h-4" />
-          Session Distribution
+          <Clock className="w-4 h-4 flex-shrink-0" />
+          <span className="truncate">Session Distribution</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col justify-end">
+      <CardContent className="flex-1 flex flex-col justify-end overflow-hidden">
         <p className="text-xs text-muted-foreground mb-2 text-center">
           Peak at <span className="font-medium text-foreground">{peakHour}:00</span>
         </p>

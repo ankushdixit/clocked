@@ -9,14 +9,16 @@ describe("HumanAIRatioCard Component", () => {
 
   it("renders legend showing Human percentage", () => {
     render(<HumanAIRatioCard />);
-    // The component shows "Human 30%" based on the last data point in ratioTrend
-    expect(screen.getByText(/Human \d+%/)).toBeInTheDocument();
+    // The component shows "Human 30%" in both header (sm+) and mobile legend
+    const humanLabels = screen.getAllByText(/Human \d+%/);
+    expect(humanLabels.length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders legend showing AI percentage", () => {
     render(<HumanAIRatioCard />);
-    // The component shows "AI 70%" based on the last data point in ratioTrend
-    expect(screen.getByText(/AI \d+%/)).toBeInTheDocument();
+    // The component shows "AI 70%" in both header (sm+) and mobile legend
+    const aiLabels = screen.getAllByText(/AI \d+%/);
+    expect(aiLabels.length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders colored legend indicators for Human and AI", () => {
@@ -30,16 +32,16 @@ describe("HumanAIRatioCard Component", () => {
 
   it("renders the SVG area chart", () => {
     const { container } = render(<HumanAIRatioCard />);
-    // The chart SVG has class "w-full h-64", while icon SVGs have "w-4 h-4"
-    const chartSvg = container.querySelector("svg.w-full.h-64");
+    // The chart SVG has responsive heights (h-40 sm:h-52 lg:h-64)
+    const chartSvg = container.querySelector('svg[viewBox="0 0 100 100"]');
     expect(chartSvg).toBeInTheDocument();
-    expect(chartSvg).toHaveAttribute("viewBox", "0 0 100 100");
+    expect(chartSvg).toHaveAttribute("preserveAspectRatio", "none");
   });
 
   it("renders stacked areas for Human and AI", () => {
     const { container } = render(<HumanAIRatioCard />);
-    // The chart SVG has class "w-full h-64"
-    const chartSvg = container.querySelector("svg.w-full.h-64");
+    // Find the chart SVG by viewBox
+    const chartSvg = container.querySelector('svg[viewBox="0 0 100 100"]');
     // Should have 2 path elements for the two areas
     const paths = chartSvg?.querySelectorAll("path");
     expect(paths?.length).toBe(2);
@@ -47,8 +49,8 @@ describe("HumanAIRatioCard Component", () => {
 
   it("renders dividing line between areas", () => {
     const { container } = render(<HumanAIRatioCard />);
-    // The chart SVG has class "w-full h-64"
-    const chartSvg = container.querySelector("svg.w-full.h-64");
+    // Find the chart SVG by viewBox
+    const chartSvg = container.querySelector('svg[viewBox="0 0 100 100"]');
     // The polyline is the dividing line
     const polyline = chartSvg?.querySelector("polyline");
     expect(polyline).toBeInTheDocument();
@@ -57,8 +59,8 @@ describe("HumanAIRatioCard Component", () => {
 
   it("renders grid line at 50%", () => {
     const { container } = render(<HumanAIRatioCard />);
-    // The chart SVG has class "w-full h-64"
-    const chartSvg = container.querySelector("svg.w-full.h-64");
+    // Find the chart SVG by viewBox
+    const chartSvg = container.querySelector('svg[viewBox="0 0 100 100"]');
     const gridLine = chartSvg?.querySelector("line");
     expect(gridLine).toBeInTheDocument();
     expect(gridLine).toHaveAttribute("y1", "50");
@@ -106,8 +108,8 @@ describe("HumanAIRatioCard Component", () => {
 
   it("areas have correct fill colors", () => {
     const { container } = render(<HumanAIRatioCard />);
-    // The chart SVG has class "w-full h-64"
-    const chartSvg = container.querySelector("svg.w-full.h-64");
+    // Find the chart SVG by viewBox
+    const chartSvg = container.querySelector('svg[viewBox="0 0 100 100"]');
     const paths = chartSvg?.querySelectorAll("path");
 
     // AI area (indigo) - first path
@@ -119,15 +121,19 @@ describe("HumanAIRatioCard Component", () => {
   it("shows current ratio values in legend", () => {
     render(<HumanAIRatioCard />);
     // Based on the mock data, the last entry is { human: 30, ai: 70 }
-    expect(screen.getByText("Human 30%")).toBeInTheDocument();
-    expect(screen.getByText("AI 70%")).toBeInTheDocument();
+    // Now shown in both header (sm+) and mobile legend, use getAllByText
+    const humanLabels = screen.getAllByText("Human 30%");
+    const aiLabels = screen.getAllByText("AI 70%");
+    expect(humanLabels.length).toBeGreaterThanOrEqual(1);
+    expect(aiLabels.length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders Y-axis containers on both sides", () => {
     const { container } = render(<HumanAIRatioCard />);
-    // Left Y-axis has text-right class, right Y-axis has text-left class
-    const leftYAxis = container.querySelector(".text-right.h-52");
-    const rightYAxis = container.querySelector(".text-left.h-52");
+    // Left Y-axis has text-right and sm:flex, right Y-axis has text-left and sm:flex
+    // Y-axis containers are hidden on mobile (hidden sm:flex)
+    const leftYAxis = container.querySelector(".hidden.sm\\:flex.text-right");
+    const rightYAxis = container.querySelector(".hidden.sm\\:flex.text-left");
     expect(leftYAxis).toBeInTheDocument();
     expect(rightYAxis).toBeInTheDocument();
   });

@@ -44,8 +44,8 @@ export function TimeDistributionCard() {
     <Card className="h-full flex flex-col overflow-hidden">
       <CardHeader className="pb-1">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <PieChart className="w-4 h-4" />
-          Time Distribution
+          <PieChart className="w-4 h-4 flex-shrink-0" />
+          <span className="truncate">Time Distribution</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col justify-end overflow-hidden">

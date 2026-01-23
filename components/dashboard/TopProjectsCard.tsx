@@ -10,19 +10,19 @@ export function TopProjectsCard() {
   const projects = generateEnhancedProjects();
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 min-w-0">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Zap className="w-4 h-4" />
-            Top Projects
+            <Zap className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate">Top Projects</span>
           </CardTitle>
-          <button className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+          <button className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 flex-shrink-0">
             View all <ArrowUpRight className="w-3 h-3" />
           </button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 overflow-hidden">
         {projects.slice(0, 5).map((project, index) => {
           const maxWeekly = Math.max(...project.weeklyTrend);
 

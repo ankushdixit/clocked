@@ -30,14 +30,14 @@ export function ClaudeMaxLimitsCard() {
   ];
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="h-full flex flex-col overflow-hidden">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <AlertCircle className="w-4 h-4" />
-          Claude Max Limits
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span className="truncate">Claude Max Limits</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 flex items-center">
+      <CardContent className="flex-1 flex items-center overflow-hidden">
         <svg className="absolute" width="0" height="0">
           <defs>
             <linearGradient id="sessionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -54,10 +54,11 @@ export function ClaudeMaxLimitsCard() {
             </linearGradient>
           </defs>
         </svg>
-        <div className="flex items-start justify-evenly w-full">
+        <div className="flex items-start justify-evenly w-full min-w-0 gap-2">
           {limits.map((limit) => (
-            <div key={limit.id} className="flex flex-col items-center">
-              <div className="relative w-32 h-32">
+            <div key={limit.id} className="flex flex-col items-center min-w-0 flex-1">
+              {/* Responsive circle sizes: smaller on md, larger on xl */}
+              <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-16 md:h-16 lg:w-20 lg:h-20 xl:w-28 xl:h-28">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                   <circle
                     cx="50"
@@ -80,11 +81,15 @@ export function ClaudeMaxLimitsCard() {
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-bold">{limit.percentage}%</span>
+                  <span className="text-base sm:text-lg md:text-base lg:text-lg xl:text-2xl font-bold">
+                    {limit.percentage}%
+                  </span>
                 </div>
               </div>
-              <p className="text-xs font-medium mt-1">{limit.label}</p>
-              <p className="text-[10px] text-muted-foreground text-center">{limit.resetInfo}</p>
+              <p className="text-xs font-medium mt-1 truncate max-w-full">{limit.label}</p>
+              <p className="text-[10px] text-muted-foreground text-center truncate max-w-full">
+                {limit.resetInfo}
+              </p>
             </div>
           ))}
         </div>

@@ -15,16 +15,16 @@ export function CumulativeCostCard() {
   return (
     <Card className="h-full flex flex-col overflow-hidden">
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <TrendingUp className="w-4 h-4" />
-            Cumulative Cost
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <CardTitle className="text-sm font-medium flex items-center gap-2 flex-shrink-0">
+            <TrendingUp className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate">Cumulative Cost</span>
           </CardTitle>
-          <div className="flex items-center gap-4 text-xs">
-            <span className="text-muted-foreground">
+          <div className="flex items-center gap-2 lg:gap-4 text-xs flex-shrink-0">
+            <span className="text-muted-foreground whitespace-nowrap">
               Current: <span className="font-bold text-foreground">{formatCost(currentCost)}</span>
             </span>
-            <span className="text-muted-foreground">
+            <span className="text-muted-foreground whitespace-nowrap hidden sm:inline">
               Avg: <span className="font-bold text-foreground">{formatCost(dailyAvg)}/day</span>
             </span>
           </div>

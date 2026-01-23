@@ -94,10 +94,10 @@ describe("QuickStatsCard Component", () => {
     expect(icons.length).toBe(7);
   });
 
-  it("renders stat items in a 3x2 grid layout", () => {
+  it("renders stat items in a responsive grid layout", () => {
     const { container } = render(<QuickStatsCard />);
-    // Grid container with grid-cols-3 and grid-rows-2
-    const grid = container.querySelector(".grid.grid-cols-3.grid-rows-2");
+    // Grid container with responsive columns (2 cols on mobile, 3 cols on sm+)
+    const grid = container.querySelector(".grid.grid-cols-2.sm\\:grid-cols-3");
     expect(grid).toBeInTheDocument();
   });
 

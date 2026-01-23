@@ -32,7 +32,9 @@ describe("HeroMetricCard Component", () => {
 
     it("renders the trend value text", () => {
       render(<HeroMetricCard {...defaultProps} />);
-      expect(screen.getByText("+12% vs last week")).toBeInTheDocument();
+      // Trend value now appears in two spans (one for xl+, one for below xl)
+      const trendTexts = screen.getAllByText("+12% vs last week");
+      expect(trendTexts.length).toBeGreaterThanOrEqual(1);
     });
 
     it("renders the icon", () => {
@@ -82,8 +84,7 @@ describe("HeroMetricCard Component", () => {
       const trendBadge = container.querySelector(".text-emerald-600");
       expect(trendBadge).toBeInTheDocument();
       // Should contain a TrendingUp icon (check for SVG in trend badge)
-      const trendContainer = screen.getByText("+12% vs last week").closest("span");
-      expect(trendContainer?.querySelector("svg")).toBeInTheDocument();
+      expect(trendBadge?.querySelector("svg")).toBeInTheDocument();
     });
 
     it("shows down trend with red styling", () => {
@@ -92,10 +93,11 @@ describe("HeroMetricCard Component", () => {
       );
       const trendBadge = container.querySelector(".text-red-600");
       expect(trendBadge).toBeInTheDocument();
-      expect(screen.getByText("-5% vs last week")).toBeInTheDocument();
+      // Trend text appears in two spans (responsive)
+      const trendTexts = screen.getAllByText("-5% vs last week");
+      expect(trendTexts.length).toBeGreaterThanOrEqual(1);
       // Should contain a TrendingDown icon
-      const trendContainer = screen.getByText("-5% vs last week").closest("span");
-      expect(trendContainer?.querySelector("svg")).toBeInTheDocument();
+      expect(trendBadge?.querySelector("svg")).toBeInTheDocument();
     });
 
     it("shows neutral trend with muted styling", () => {
@@ -104,11 +106,11 @@ describe("HeroMetricCard Component", () => {
       );
       const trendBadge = container.querySelector(".text-muted-foreground.bg-muted");
       expect(trendBadge).toBeInTheDocument();
-      expect(screen.getByText("$110/day avg")).toBeInTheDocument();
-      // Neutral trend should not have a trend icon
-      const trendContainer = screen.getByText("$110/day avg").closest("span");
-      // Only the text should be in the span, no SVG icon for neutral
-      const svgs = trendContainer?.querySelectorAll("svg");
+      // Trend text appears in two spans (responsive)
+      const trendTexts = screen.getAllByText("$110/day avg");
+      expect(trendTexts.length).toBeGreaterThanOrEqual(1);
+      // Neutral trend should not have a trend icon inside the badge
+      const svgs = trendBadge?.querySelectorAll("svg");
       expect(svgs?.length).toBe(0);
     });
   });
@@ -136,22 +138,22 @@ describe("HeroMetricCard Component", () => {
   describe("Sparkline Integration", () => {
     it("renders sparkline container", () => {
       const { container } = render(<HeroMetricCard {...defaultProps} />);
-      // Sparkline is in a hidden lg:block container
-      const sparklineContainer = container.querySelector(".hidden.lg\\:block");
+      // Sparkline is in a hidden xl:block container (hidden below xl breakpoint)
+      const sparklineContainer = container.querySelector(".hidden.xl\\:block");
       expect(sparklineContainer).toBeInTheDocument();
     });
 
     it("passes sparklineData to Sparkline component", () => {
       const { container } = render(<HeroMetricCard {...defaultProps} />);
       // Sparkline renders an SVG inside the container
-      const sparklineContainer = container.querySelector(".hidden.lg\\:block");
+      const sparklineContainer = container.querySelector(".hidden.xl\\:block");
       const sparklineSvg = sparklineContainer?.querySelector("svg");
       expect(sparklineSvg).toBeInTheDocument();
     });
 
     it("passes sparklineColor to Sparkline component", () => {
       const { container } = render(<HeroMetricCard {...defaultProps} sparklineColor="#3b82f6" />);
-      const sparklineContainer = container.querySelector(".hidden.lg\\:block");
+      const sparklineContainer = container.querySelector(".hidden.xl\\:block");
       const polyline = sparklineContainer?.querySelector("polyline");
       expect(polyline).toHaveAttribute("stroke", "#3b82f6");
     });
@@ -164,6 +166,7 @@ describe("HeroMetricCard Component", () => {
       expect(card).toHaveClass("rounded-xl");
       expect(card).toHaveClass("bg-muted/50");
       expect(card).toHaveClass("p-5");
+      expect(card).toHaveClass("overflow-hidden");
     });
 
     it("has minimum height", () => {
@@ -194,10 +197,18 @@ describe("HeroMetricCard Component", () => {
       expect(trendContainer).toBeInTheDocument();
     });
 
-    it("sparkline is hidden on mobile (has lg:block)", () => {
+    it("sparkline is hidden below xl breakpoint (has xl:block)", () => {
       const { container } = render(<HeroMetricCard {...defaultProps} />);
-      const sparklineContainer = container.querySelector(".hidden.lg\\:block");
+      const sparklineContainer = container.querySelector(".hidden.xl\\:block");
       expect(sparklineContainer).toBeInTheDocument();
+    });
+
+    it("shows short trend text on smaller screens", () => {
+      render(<HeroMetricCard {...defaultProps} trendValueShort="+12% vs LW" />);
+      // Short version is shown in xl:hidden span
+      expect(screen.getByText("+12% vs LW")).toBeInTheDocument();
+      // Full version is shown in hidden xl:inline span
+      expect(screen.getByText("+12% vs last week")).toBeInTheDocument();
     });
   });
 

@@ -57,27 +57,31 @@ export function QuickStatsCard() {
   ];
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="h-full flex flex-col overflow-hidden">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Zap className="w-4 h-4" />
-          Quick Stats
+          <Zap className="w-4 h-4 flex-shrink-0" />
+          <span className="truncate">Quick Stats</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex-1">
-        <div className="grid grid-cols-3 grid-rows-2 gap-2 h-full">
+      <CardContent className="flex-1 overflow-hidden">
+        <div className="grid grid-cols-2 sm:grid-cols-3 grid-rows-3 sm:grid-rows-2 gap-2 h-full">
           {statItems.map((item) => (
             <div
               key={item.label}
               className={cn(
-                "p-3 rounded-lg flex flex-col justify-center",
+                "p-2 sm:p-3 rounded-lg flex flex-col justify-center min-w-0 overflow-hidden",
                 item.color.split(" ")[0]
               )}
             >
-              <item.icon className={cn("w-4 h-4 mb-1", item.color.split(" ")[1])} />
-              <p className="text-[11px] text-muted-foreground">{item.label}</p>
-              <p className="text-base font-bold">{item.value}</p>
-              <p className="text-[11px] text-muted-foreground">{item.subvalue}</p>
+              <item.icon className={cn("w-4 h-4 mb-1 flex-shrink-0", item.color.split(" ")[1])} />
+              <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate">
+                {item.label}
+              </p>
+              <p className="text-sm sm:text-base font-bold truncate">{item.value}</p>
+              <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate">
+                {item.subvalue}
+              </p>
             </div>
           ))}
         </div>
