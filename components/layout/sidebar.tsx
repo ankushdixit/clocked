@@ -51,7 +51,7 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="hidden md:flex w-64 flex-col border-r bg-background">
+    <aside className="hidden md:flex w-52 flex-col border-r bg-background">
       {/* Traffic lights area - only visible space on macOS */}
       {isMac && <div className="h-8 app-drag-region flex-shrink-0" />}
 

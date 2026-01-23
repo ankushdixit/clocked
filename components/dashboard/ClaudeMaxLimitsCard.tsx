@@ -58,7 +58,7 @@ export function ClaudeMaxLimitsCard() {
           {limits.map((limit) => (
             <div key={limit.id} className="flex flex-col items-center min-w-0 flex-1">
               {/* Responsive circle sizes: smaller on md, larger on xl */}
-              <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-16 md:h-16 lg:w-20 lg:h-20 xl:w-28 xl:h-28">
+              <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-16 md:h-16 lg:w-20 lg:h-20 xl:w-24 xl:h-24 2xl:w-32 2xl:h-32">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                   <circle
                     cx="50"

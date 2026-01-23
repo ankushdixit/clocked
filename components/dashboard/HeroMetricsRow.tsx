@@ -20,8 +20,7 @@ export function HeroMetricsRow() {
         value="349"
         subtitle="this month"
         trend="up"
-        trendValue="+12% vs last week"
-        trendValueShort="+12% vs LW"
+        trendValue="+12% vs lw"
         sparklineData={dailySessionCounts}
         sparklineColor="#10b981"
       />
@@ -31,8 +30,7 @@ export function HeroMetricsRow() {
         value="844h 18m"
         subtitle="total duration"
         trend="up"
-        trendValue="+8% vs last week"
-        trendValueShort="+8% vs LW"
+        trendValue="+8% vs lw"
         sparklineData={dailyTimes}
         sparklineColor="#3b82f6"
       />
@@ -42,8 +40,7 @@ export function HeroMetricsRow() {
         value="$2,532.92"
         subtitle="estimated"
         trend="neutral"
-        trendValue="$110/day avg"
-        trendValueShort="$110/day"
+        trendValue="$110/day"
         sparklineData={costTrend.map((d) => d.cumulative)}
         sparklineColor="#f59e0b"
       />
@@ -53,8 +50,7 @@ export function HeroMetricsRow() {
         value="25.33x"
         subtitle="multiplier"
         trend="up"
-        trendValue="+14% vs last month"
-        trendValueShort="+14% vs LM"
+        trendValue="+14% vs lm"
         sparklineData={valueMultiplierTrend}
         sparklineColor="#10b981"
         highlight
