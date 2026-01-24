@@ -152,14 +152,14 @@ export function TimeBreakdownCard({
   };
 
   return (
-    <Card data-testid="time-breakdown-card">
+    <Card className="h-full flex flex-col" data-testid="time-breakdown-card">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <Clock className="w-4 h-4 flex-shrink-0" />
           <span>Time Breakdown</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-4 space-y-2">
+      <CardContent className="pt-4 space-y-2 flex-1 flex flex-col justify-center">
         <TimeBar
           label="Clock Time"
           value={formatClockSpan(clockStart, clockEnd)}

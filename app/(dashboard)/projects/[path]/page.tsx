@@ -159,8 +159,8 @@ function ProjectMetrics({ project, sessions }: { project: Project; sessions: Ses
 
       {/* Row 2: Time Breakdown (4), Cost Analysis (3), Quick Stats (3) */}
       {/* Below 1280px: 1 card on top, 2 cards below. Above 1280px: 3 cards with 4:3:3 ratio */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[minmax(500px,4fr)_3fr_3fr] gap-4">
-        <div className="md:col-span-2 xl:col-span-1">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[minmax(500px,4fr)_3fr_3fr] gap-4 items-stretch">
+        <div className="md:col-span-2 xl:col-span-1 h-full">
           <TimeBreakdownCard
             clockStart={project.firstActivity}
             clockEnd={project.lastActivity}

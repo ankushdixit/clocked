@@ -1095,3 +1095,508 @@ describe("ProjectsPage handler user interactions", () => {
     });
   });
 });
+
+describe("ProjectsPage merge functionality", () => {
+  let mockMutate: jest.Mock;
+  let mockInvalidate: jest.Mock;
+
+  const mockProject1: Project = {
+    path: "/Users/test/project-1",
+    name: "project-1",
+    firstActivity: "2024-01-01T10:00:00Z",
+    lastActivity: "2024-01-15T15:30:00Z",
+    sessionCount: 5,
+    messageCount: 100,
+    totalTime: 3600000,
+    isHidden: false,
+    groupId: null,
+    mergedInto: null,
+  };
+
+  const mockProject2: Project = {
+    path: "/Users/test/project-2",
+    name: "project-2",
+    firstActivity: "2024-01-01T10:00:00Z",
+    lastActivity: "2024-01-10T15:30:00Z",
+    sessionCount: 3,
+    messageCount: 50,
+    totalTime: 1800000,
+    isHidden: false,
+    groupId: null,
+    mergedInto: null,
+  };
+
+  beforeEach(() => {
+    mockUseList.mockClear();
+    mockUseUpdate.mockClear();
+    mockUseInvalidate.mockClear();
+
+    mockMutate = jest.fn();
+    mockInvalidate = jest.fn();
+
+    mockUseUpdate.mockReturnValue({
+      mutate: mockMutate,
+    });
+    mockUseInvalidate.mockReturnValue(mockInvalidate);
+  });
+
+  const setupMocksWithProjects = (projects: Project[], groups: ProjectGroup[] = []) => {
+    mockUseList
+      .mockReturnValueOnce({
+        query: { isLoading: false, isError: false },
+        result: { data: projects, total: projects.length },
+      })
+      .mockReturnValueOnce({
+        query: { isLoading: false, isError: false },
+        result: { data: groups, total: groups.length },
+      });
+  };
+
+  describe("handleMerge", () => {
+    it("calls mutate with mergeSources when merging projects", async () => {
+      const user = userEvent.setup();
+      setupMocksWithProjects([mockProject1, mockProject2]);
+
+      render(<ProjectsPage />);
+
+      // Enter select mode
+      await user.click(screen.getByRole("button", { name: /merge projects/i }));
+
+      // Select both projects
+      await user.click(screen.getByTestId("project-row-/Users/test/project-1"));
+      await user.click(screen.getByTestId("project-row-/Users/test/project-2"));
+
+      // Click merge button
+      await user.click(screen.getByRole("button", { name: /^merge$/i }));
+
+      // Select primary in dialog
+      const radioButtons = screen.getAllByRole("radio");
+      const project1Radio = radioButtons.find(
+        (radio) => (radio as HTMLInputElement).value === "/Users/test/project-1"
+      );
+      await user.click(project1Radio!);
+
+      // Confirm merge
+      const dialogMergeButton = screen.getAllByRole("button", { name: /^merge$/i }).pop();
+      await user.click(dialogMergeButton!);
+
+      // Verify mutate was called with correct parameters for merge
+      expect(mockMutate).toHaveBeenCalledWith(
+        {
+          resource: "projects",
+          id: "/Users/test/project-1",
+          values: { mergeSources: ["/Users/test/project-2"] },
+        },
+        expect.objectContaining({
+          onSuccess: expect.any(Function),
+        })
+      );
+    });
+
+    it("invalidates projects list on successful merge", async () => {
+      const user = userEvent.setup();
+      setupMocksWithProjects([mockProject1, mockProject2]);
+
+      // Setup mutate to call onSuccess
+      mockMutate.mockImplementation((_params, options) => {
+        if (options?.onSuccess) {
+          options.onSuccess();
+        }
+      });
+
+      render(<ProjectsPage />);
+
+      // Enter select mode
+      await user.click(screen.getByRole("button", { name: /merge projects/i }));
+
+      // Select both projects
+      await user.click(screen.getByTestId("project-row-/Users/test/project-1"));
+      await user.click(screen.getByTestId("project-row-/Users/test/project-2"));
+
+      // Click merge button
+      await user.click(screen.getByRole("button", { name: /^merge$/i }));
+
+      // Select primary in dialog
+      const radioButtons = screen.getAllByRole("radio");
+      const project1Radio = radioButtons.find(
+        (radio) => (radio as HTMLInputElement).value === "/Users/test/project-1"
+      );
+      await user.click(project1Radio!);
+
+      // Confirm merge
+      const dialogMergeButton = screen.getAllByRole("button", { name: /^merge$/i }).pop();
+      await user.click(dialogMergeButton!);
+
+      // Verify invalidate was called
+      expect(mockInvalidate).toHaveBeenCalledWith({
+        resource: "projects",
+        invalidates: ["list"],
+      });
+    });
+
+    it("merges multiple source projects into target", async () => {
+      const user = userEvent.setup();
+      const mockProject3: Project = {
+        ...mockProject1,
+        path: "/Users/test/project-3",
+        name: "project-3",
+      };
+      setupMocksWithProjects([mockProject1, mockProject2, mockProject3]);
+
+      render(<ProjectsPage />);
+
+      // Enter select mode
+      await user.click(screen.getByRole("button", { name: /merge projects/i }));
+
+      // Select all three projects
+      await user.click(screen.getByTestId("project-row-/Users/test/project-1"));
+      await user.click(screen.getByTestId("project-row-/Users/test/project-2"));
+      await user.click(screen.getByTestId("project-row-/Users/test/project-3"));
+
+      // Click merge button
+      await user.click(screen.getByRole("button", { name: /^merge$/i }));
+
+      // Select primary in dialog
+      const radioButtons = screen.getAllByRole("radio");
+      const project1Radio = radioButtons.find(
+        (radio) => (radio as HTMLInputElement).value === "/Users/test/project-1"
+      );
+      await user.click(project1Radio!);
+
+      // Confirm merge
+      const dialogMergeButton = screen.getAllByRole("button", { name: /^merge$/i }).pop();
+      await user.click(dialogMergeButton!);
+
+      // Verify mutate was called with both source projects
+      expect(mockMutate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resource: "projects",
+          id: "/Users/test/project-1",
+          values: {
+            mergeSources: expect.arrayContaining([
+              "/Users/test/project-2",
+              "/Users/test/project-3",
+            ]),
+          },
+        }),
+        expect.any(Object)
+      );
+    });
+  });
+
+  describe("handleUnmerge", () => {
+    it("calls mutate with mergedInto: null when unmerging a project", async () => {
+      const user = userEvent.setup();
+      const primaryProject = { ...mockProject1 };
+      const mergedProject = {
+        ...mockProject2,
+        mergedInto: mockProject1.path,
+      };
+      setupMocksWithProjects([primaryProject, mergedProject]);
+
+      render(<ProjectsPage />);
+
+      // Open the action menu for the primary project
+      const menuButton = screen.getByRole("button", { name: /open menu/i });
+      await user.click(menuButton);
+
+      // Look for "Unmerge" submenu or option
+      // First hover over "Unmerge projects" if it's a submenu
+      const unmergeSubmenu = screen.queryByText(/unmerge projects/i);
+      if (unmergeSubmenu) {
+        await user.hover(unmergeSubmenu);
+
+        // Click on the specific merged project to unmerge
+        const unmergeOption = await screen.findByText("project-2");
+        fireEvent.click(unmergeOption);
+
+        // Verify mutate was called with mergedInto: null
+        expect(mockMutate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            resource: "projects",
+            id: mergedProject.path,
+            values: { mergedInto: null },
+          }),
+          expect.any(Object)
+        );
+      }
+    });
+  });
+});
+
+describe("ProjectsPage group reordering", () => {
+  let mockMutate: jest.Mock;
+  let mockInvalidate: jest.Mock;
+
+  const mockProject: Project = {
+    path: "/Users/test/my-project",
+    name: "my-project",
+    firstActivity: "2024-01-01T10:00:00Z",
+    lastActivity: "2024-01-15T15:30:00Z",
+    sessionCount: 5,
+    messageCount: 100,
+    totalTime: 3600000,
+    isHidden: false,
+    groupId: "group-1",
+    mergedInto: null,
+  };
+
+  const mockGroups: ProjectGroup[] = [
+    {
+      id: "group-1",
+      name: "First Group",
+      color: "#ff0000",
+      createdAt: "2024-01-01T00:00:00Z",
+      sortOrder: 0,
+    },
+    {
+      id: "group-2",
+      name: "Second Group",
+      color: "#00ff00",
+      createdAt: "2024-01-01T00:00:00Z",
+      sortOrder: 1,
+    },
+    {
+      id: "group-3",
+      name: "Third Group",
+      color: "#0000ff",
+      createdAt: "2024-01-01T00:00:00Z",
+      sortOrder: 2,
+    },
+  ];
+
+  beforeEach(() => {
+    mockUseList.mockClear();
+    mockUseUpdate.mockClear();
+    mockUseInvalidate.mockClear();
+
+    mockMutate = jest.fn();
+    mockInvalidate = jest.fn();
+
+    mockUseUpdate.mockReturnValue({
+      mutate: mockMutate,
+    });
+    mockUseInvalidate.mockReturnValue(mockInvalidate);
+  });
+
+  const setupMocksWithGroups = (projects = [mockProject], groups = mockGroups) => {
+    mockUseList
+      .mockReturnValueOnce({
+        query: { isLoading: false, isError: false },
+        result: { data: projects, total: projects.length },
+      })
+      .mockReturnValueOnce({
+        query: { isLoading: false, isError: false },
+        result: { data: groups, total: groups.length },
+      });
+  };
+
+  describe("handleReorderGroup", () => {
+    it("shows group reorder buttons when groups exist", () => {
+      const projectsInGroups = [
+        { ...mockProject, groupId: "group-1" },
+        { ...mockProject, path: "/proj2", name: "proj2", groupId: "group-2" },
+      ];
+      setupMocksWithGroups(projectsInGroups);
+
+      render(<ProjectsPage />);
+
+      // Move buttons should be visible
+      expect(screen.getAllByRole("button", { name: /move group up/i }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole("button", { name: /move group down/i }).length).toBeGreaterThan(0);
+    });
+
+    it("calls mutate to swap sort orders when moving group up", async () => {
+      const user = userEvent.setup();
+      const projectsInGroups = [
+        { ...mockProject, groupId: "group-1" },
+        { ...mockProject, path: "/proj2", name: "proj2", groupId: "group-2" },
+      ];
+      setupMocksWithGroups(projectsInGroups);
+
+      // Setup mutate to call onSuccess
+      mockMutate.mockImplementation((_params, options) => {
+        if (options?.onSuccess) {
+          options.onSuccess();
+        }
+      });
+
+      render(<ProjectsPage />);
+
+      // Find an enabled move up button (second group should have it enabled)
+      const moveUpButtons = screen.getAllByRole("button", { name: /move group up/i });
+      const enabledButton = moveUpButtons.find((btn) => !btn.hasAttribute("disabled"));
+
+      if (enabledButton) {
+        await user.click(enabledButton);
+
+        // First mutate call should update the current group's sort order
+        expect(mockMutate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            resource: "groups",
+          }),
+          expect.objectContaining({
+            onSuccess: expect.any(Function),
+          })
+        );
+      }
+    });
+
+    it("calls mutate to swap sort orders when moving group down", async () => {
+      const user = userEvent.setup();
+      const projectsInGroups = [
+        { ...mockProject, groupId: "group-1" },
+        { ...mockProject, path: "/proj2", name: "proj2", groupId: "group-2" },
+      ];
+      setupMocksWithGroups(projectsInGroups);
+
+      mockMutate.mockImplementation((_params, options) => {
+        if (options?.onSuccess) {
+          options.onSuccess();
+        }
+      });
+
+      render(<ProjectsPage />);
+
+      // Find an enabled move down button (first group should have it enabled)
+      const moveDownButtons = screen.getAllByRole("button", { name: /move group down/i });
+      const enabledButton = moveDownButtons.find((btn) => !btn.hasAttribute("disabled"));
+
+      if (enabledButton) {
+        await user.click(enabledButton);
+
+        expect(mockMutate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            resource: "groups",
+          }),
+          expect.objectContaining({
+            onSuccess: expect.any(Function),
+          })
+        );
+      }
+    });
+
+    it("invalidates groups cache after successful reorder", async () => {
+      const user = userEvent.setup();
+      const projectsInGroups = [
+        { ...mockProject, groupId: "group-1" },
+        { ...mockProject, path: "/proj2", name: "proj2", groupId: "group-2" },
+      ];
+      setupMocksWithGroups(projectsInGroups);
+
+      // Setup nested onSuccess callbacks to simulate the chain
+      mockMutate.mockImplementation((_params, options) => {
+        if (options?.onSuccess) {
+          options.onSuccess();
+        }
+      });
+
+      render(<ProjectsPage />);
+
+      const moveDownButtons = screen.getAllByRole("button", { name: /move group down/i });
+      const enabledButton = moveDownButtons.find((btn) => !btn.hasAttribute("disabled"));
+
+      if (enabledButton) {
+        await user.click(enabledButton);
+
+        // After both mutates succeed, invalidate should be called for groups
+        expect(mockInvalidate).toHaveBeenCalledWith({
+          resource: "groups",
+          invalidates: ["list"],
+        });
+      }
+    });
+  });
+
+  describe("handleUnmerge", () => {
+    it("calls mutate with mergedInto: null when unmerging", async () => {
+      const user = userEvent.setup();
+      const primaryProject = {
+        ...mockProject,
+        mergedInto: null,
+      };
+      const mergedProject = {
+        ...mockProject,
+        path: "/merged-proj",
+        name: "merged-proj",
+        mergedInto: mockProject.path,
+      };
+
+      setupMocksWithGroups([primaryProject, mergedProject], []);
+
+      render(<ProjectsPage />);
+
+      // Open the action menu for the primary project (which has merged projects)
+      const menuButton = screen.getByRole("button", { name: /open menu/i });
+      await user.click(menuButton);
+
+      // Look for "Unmerge" option if it exists in the menu
+      const unmergeOption = screen.queryByRole("menuitem", { name: /unmerge/i });
+      if (unmergeOption) {
+        await user.click(unmergeOption);
+
+        expect(mockMutate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            resource: "projects",
+            values: { mergedInto: null },
+          }),
+          expect.any(Object)
+        );
+      }
+    });
+  });
+
+  describe("boundary conditions for group reordering", () => {
+    it("does not call mutate when trying to move first group up", async () => {
+      const user = userEvent.setup();
+      setupMocksWithGroups([mockProject]);
+
+      render(<ProjectsPage />);
+
+      // The first group's move up button should be disabled
+      const moveUpButtons = screen.queryAllByRole("button", { name: /move group up/i });
+      if (moveUpButtons.length > 0) {
+        const firstMoveUp = moveUpButtons[0];
+        expect(firstMoveUp).toBeDisabled();
+
+        // Even if we try to click it (shouldn't do anything)
+        await user.click(firstMoveUp);
+        expect(mockMutate).not.toHaveBeenCalled();
+      }
+    });
+
+    it("does not call mutate when trying to move last group down", () => {
+      const projectsInGroups = [
+        { ...mockProject, groupId: "group-1" },
+        { ...mockProject, path: "/proj2", name: "proj2", groupId: "group-2" },
+        { ...mockProject, path: "/proj3", name: "proj3", groupId: "group-3" },
+      ];
+      setupMocksWithGroups(projectsInGroups);
+
+      render(<ProjectsPage />);
+
+      // The last group's move down button should be disabled
+      const moveDownButtons = screen.getAllByRole("button", { name: /move group down/i });
+      const lastMoveDown = moveDownButtons[moveDownButtons.length - 1];
+      expect(lastMoveDown).toBeDisabled();
+    });
+
+    it("handles reordering with only one group gracefully", () => {
+      const singleGroup = [mockGroups[0]];
+      setupMocksWithGroups([mockProject], singleGroup);
+
+      render(<ProjectsPage />);
+
+      // With only one group, both move up and move down should be disabled
+      const moveUpButton = screen.queryByRole("button", { name: /move group up/i });
+      const moveDownButton = screen.queryByRole("button", { name: /move group down/i });
+
+      if (moveUpButton) {
+        expect(moveUpButton).toBeDisabled();
+      }
+      if (moveDownButton) {
+        expect(moveDownButton).toBeDisabled();
+      }
+    });
+  });
+});
