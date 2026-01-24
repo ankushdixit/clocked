@@ -11,9 +11,10 @@
  * - Tool usage chart
  * - Merged projects (if any)
  * - Recent sessions list (aggregated from primary + merged projects)
+ * - Click a session to resume it in your preferred IDE
  */
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useOne, useList, useUpdate, useInvalidate } from "@refinedev/core";
 import {
@@ -226,11 +227,26 @@ function PageHeader({
 }
 
 /** Sessions section with list or empty state */
-function SessionsSection({ sessions }: { sessions: Session[] }) {
+function SessionsSection({
+  sessions,
+  projectPath,
+  onResumeSession,
+  loadingSessionId,
+}: {
+  sessions: Session[];
+  projectPath: string;
+  onResumeSession: (sessionId: string, projectPath: string) => void;
+  loadingSessionId: string | null;
+}) {
   return (
     <section>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold">Recent Sessions</h2>
+        <div>
+          <h2 className="text-lg font-semibold">Recent Sessions</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Click a session to resume it in your IDE
+          </p>
+        </div>
         <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
           {sessions.length}
         </span>
@@ -241,7 +257,12 @@ function SessionsSection({ sessions }: { sessions: Session[] }) {
           description="Sessions will appear here as you use Claude Code"
         />
       ) : (
-        <SessionsList sessions={sessions} />
+        <SessionsList
+          sessions={sessions}
+          projectPath={projectPath}
+          onResumeSession={onResumeSession}
+          loadingSessionId={loadingSessionId}
+        />
       )}
     </section>
   );
@@ -280,14 +301,20 @@ function useProjectDetailData(projectPath: string) {
 
   const allSessions = useMemo(() => {
     const primary = sessionsResult?.data ?? [];
-    if (!hasMergedProjects) return primary;
 
-    const mergedPaths = new Set(mergedProjects.map((p) => p.path));
-    const merged = (mergedSessionsResult?.data ?? []).filter((s) => mergedPaths.has(s.projectPath));
+    let sessions: Session[];
+    if (!hasMergedProjects) {
+      sessions = primary;
+    } else {
+      const mergedPaths = new Set(mergedProjects.map((p) => p.path));
+      const merged = (mergedSessionsResult?.data ?? []).filter((s) =>
+        mergedPaths.has(s.projectPath)
+      );
+      sessions = [...primary, ...merged];
+    }
 
-    return [...primary, ...merged].sort(
-      (a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime()
-    );
+    // Always sort by modified date descending (latest first)
+    return sessions.sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime());
   }, [sessionsResult?.data, mergedSessionsResult?.data, mergedProjects, hasMergedProjects]);
 
   const isLoadingCore =
@@ -309,11 +336,15 @@ function CurrentDesign({
   mergedProjects,
   allSessions,
   onUnmerge,
+  onResumeSession,
+  loadingSessionId,
 }: {
   project: Project;
   mergedProjects: Project[];
   allSessions: Session[];
   onUnmerge: (path: string) => void;
+  onResumeSession: (sessionId: string, projectPath: string) => void;
+  loadingSessionId: string | null;
 }) {
   // Only show MergedProjectsCard when there are real merged projects
   const hasRealMergedProjects = mergedProjects.length > 0;
@@ -324,7 +355,12 @@ function CurrentDesign({
       {hasRealMergedProjects && (
         <MergedProjectsCard mergedProjects={mergedProjects} onUnmerge={onUnmerge} />
       )}
-      <SessionsSection sessions={allSessions} />
+      <SessionsSection
+        sessions={allSessions}
+        projectPath={project.path}
+        onResumeSession={onResumeSession}
+        loadingSessionId={loadingSessionId}
+      />
     </>
   );
 }
@@ -339,6 +375,11 @@ export default function ProjectDetailPage() {
 
   const { project, mergedProjects, allSessions, isLoading } = useProjectDetailData(projectPath);
 
+  // State for session resume
+  const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const [resumeMessage, setResumeMessage] = useState<string | null>(null);
+
   const handleBack = useCallback(() => router.push("/projects"), [router]);
 
   const handleUnmerge = useCallback(
@@ -351,17 +392,70 @@ export default function ProjectDetailPage() {
     [updateProject, invalidate]
   );
 
+  const handleResumeSession = useCallback(async (sessionId: string, sessionProjectPath: string) => {
+    if (typeof window === "undefined" || !window.electron?.sessions?.resume) return;
+
+    setLoadingSessionId(sessionId);
+    setResumeError(null);
+    setResumeMessage(null);
+
+    try {
+      const result = await window.electron.sessions.resume(sessionId, sessionProjectPath);
+
+      if (!result.success) {
+        setResumeError(result.error || "Failed to resume session");
+        console.error("Failed to resume session:", result.error);
+      } else if (result.message) {
+        // Show helpful message (e.g., for VS Code clipboard copy)
+        setResumeMessage(result.message);
+        // Auto-dismiss after 8 seconds
+        setTimeout(() => setResumeMessage(null), 8000);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to resume session";
+      setResumeError(message);
+      console.error("Failed to resume session:", error);
+    } finally {
+      // Keep loading state briefly so user sees feedback
+      setTimeout(() => setLoadingSessionId(null), 500);
+    }
+  }, []);
+
   if (isLoading) return <LoadingState />;
   if (!project) return <NotFoundState onBack={handleBack} />;
 
   return (
     <div className="space-y-4">
       <PageHeader project={project} mergedCount={mergedProjects.length} onBack={handleBack} />
+      {resumeMessage && (
+        <div className="bg-primary/10 text-primary text-sm p-3 rounded-lg flex items-center justify-between">
+          <span>{resumeMessage}</span>
+          <button
+            onClick={() => setResumeMessage(null)}
+            className="text-primary hover:text-primary/80 ml-4"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+      {resumeError && (
+        <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg flex items-center justify-between">
+          <span>{resumeError}</span>
+          <button
+            onClick={() => setResumeError(null)}
+            className="text-destructive hover:text-destructive/80"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <CurrentDesign
         project={project}
         mergedProjects={mergedProjects}
         allSessions={allSessions}
         onUnmerge={handleUnmerge}
+        onResumeSession={handleResumeSession}
+        loadingSessionId={loadingSessionId}
       />
     </div>
   );

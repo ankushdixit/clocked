@@ -7,17 +7,18 @@
  * - Date/time of the session
  * - Summary or first prompt
  * - Duration and message count with icons
- * - Hover effects and clickable
+ * - Hover effects and clickable to resume session
  */
 
 import { format, isToday, isYesterday } from "date-fns";
-import { ArrowUpRight, Clock, MessageSquare } from "lucide-react";
+import { Clock, MessageSquare, Loader2, ExternalLink } from "lucide-react";
 import { formatDuration } from "@/lib/formatters/time";
 import type { Session } from "@/types/electron";
 
 interface SessionRowProps {
   session: Session;
   onClick?: () => void;
+  isLoading?: boolean;
 }
 
 /** Format date with relative labels for today/yesterday */
@@ -35,28 +36,32 @@ function formatSessionDate(dateStr: string): string {
   return `${format(date, "MMM d")} at ${format(date, "h:mm a")}`;
 }
 
-export function SessionRow({ session, onClick }: SessionRowProps) {
+export function SessionRow({ session, onClick, isLoading }: SessionRowProps) {
   const displayText = session.summary || session.firstPrompt || "No description";
 
   const handleClick = () => {
-    if (onClick) {
+    if (onClick && !isLoading) {
       onClick();
     }
-    // Session detail navigation is a placeholder until Story 4.3
   };
 
   return (
     <div
       onClick={handleClick}
-      className="group p-4 rounded-xl border bg-card hover:shadow-md cursor-pointer transition-all"
+      className={`group p-4 rounded-xl border bg-card transition-all ${
+        isLoading
+          ? "opacity-70 cursor-wait"
+          : "hover:shadow-md cursor-pointer hover:border-primary/50"
+      }`}
       role="button"
-      tabIndex={0}
+      tabIndex={isLoading ? -1 : 0}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
+        if ((e.key === "Enter" || e.key === " ") && !isLoading) {
           handleClick();
         }
       }}
       data-testid={`session-${session.id}`}
+      aria-busy={isLoading}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -65,7 +70,11 @@ export function SessionRow({ session, onClick }: SessionRowProps) {
             {displayText}
           </p>
         </div>
-        <ArrowUpRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
+        {isLoading ? (
+          <Loader2 className="w-4 h-4 text-primary animate-spin flex-shrink-0 mt-0.5" />
+        ) : (
+          <ExternalLink className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
+        )}
       </div>
       <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
@@ -76,6 +85,7 @@ export function SessionRow({ session, onClick }: SessionRowProps) {
           <MessageSquare className="w-3 h-3" />
           {session.messageCount} messages
         </span>
+        {isLoading && <span className="text-primary">Opening IDE...</span>}
       </div>
     </div>
   );

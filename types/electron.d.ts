@@ -134,6 +134,64 @@ export interface MonthlySummaryResponse {
   error?: string;
 }
 
+/**
+ * Available IDE types
+ */
+export type IdeType =
+  | "terminal"
+  | "iterm2"
+  | "vscode"
+  | "cursor"
+  | "warp"
+  | "windsurf"
+  | "vscodium"
+  | "zed"
+  | "void"
+  | "positron"
+  | "antigravity";
+
+/**
+ * IDE information with availability
+ */
+export interface IdeInfo {
+  id: IdeType;
+  name: string;
+  available: boolean;
+}
+
+/**
+ * App settings
+ */
+export interface AppSettings {
+  defaultIde: IdeType;
+}
+
+/**
+ * Response for getting available IDEs
+ */
+export interface AvailableIdesResponse {
+  ides?: IdeInfo[];
+  error?: string;
+}
+
+/**
+ * Response for getting settings
+ */
+export interface SettingsResponse {
+  settings?: AppSettings;
+  value?: unknown;
+  error?: string;
+}
+
+/**
+ * Response for resume session
+ */
+export interface ResumeSessionResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
 declare global {
   interface Window {
     electron: {
@@ -186,6 +244,7 @@ declare global {
         ) => Promise<SessionsResponse>;
         getByDateRange: (_startDate: string, _endDate: string) => Promise<SessionsResponse>;
         getCount: () => Promise<CountResponse>;
+        resume: (_sessionId: string, _projectPath: string) => Promise<ResumeSessionResponse>;
       };
 
       // Data management API
@@ -197,6 +256,13 @@ declare global {
       // Analytics API
       analytics: {
         getMonthlySummary: (_month: string) => Promise<MonthlySummaryResponse>;
+      };
+
+      // Settings API
+      settings: {
+        get: (_key?: string) => Promise<SettingsResponse>;
+        set: (_key: string, _value: unknown) => Promise<SuccessResponse>;
+        getAvailableIdes: () => Promise<AvailableIdesResponse>;
       };
 
       // Generic invoke for custom channels

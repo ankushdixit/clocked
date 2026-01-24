@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useList, useUpdate, useCreate, useDelete, useInvalidate } from "@refinedev/core";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,8 +15,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Eye, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
-import type { Project, ProjectGroup } from "@/types/electron";
+import { Eye, Plus, Pencil, Trash2, Loader2, Terminal, Check } from "lucide-react";
+import type { Project, ProjectGroup, IdeInfo, IdeType } from "@/types/electron";
 
 const GROUP_COLORS = [
   "#ef4444", // red
@@ -35,6 +35,107 @@ function LoadingSpinner() {
     <div className="flex items-center justify-center py-12">
       <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
     </div>
+  );
+}
+
+// Hook for IDE preference state
+function useIdePreferences() {
+  const [availableIdes, setAvailableIdes] = useState<IdeInfo[]>([]);
+  const [selectedIde, setSelectedIde] = useState<IdeType>("terminal");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    async function loadIdeSettings() {
+      if (typeof window === "undefined" || !window.electron?.settings) return;
+
+      try {
+        setIsLoading(true);
+        const idesResponse = await window.electron.settings.getAvailableIdes();
+        if (idesResponse.ides) {
+          setAvailableIdes(idesResponse.ides);
+        }
+        const settingsResponse = await window.electron.settings.get();
+        if (settingsResponse.settings?.defaultIde) {
+          setSelectedIde(settingsResponse.settings.defaultIde);
+        }
+      } catch (error) {
+        console.error("Failed to load IDE settings:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadIdeSettings();
+  }, []);
+
+  const handleSelect = async (ide: IdeType) => {
+    if (typeof window === "undefined" || !window.electron?.settings) return;
+    try {
+      setIsSaving(true);
+      setSelectedIde(ide);
+      await window.electron.settings.set("defaultIde", ide);
+    } catch (error) {
+      console.error("Failed to save IDE setting:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return { availableIdes, selectedIde, isLoading, isSaving, handleSelect };
+}
+
+// IDE preference section
+function IdePreferenceSection() {
+  const { availableIdes, selectedIde, isLoading, isSaving, handleSelect } = useIdePreferences();
+
+  if (isLoading) return null;
+
+  // Filter to only show available IDEs
+  const displayIdes = availableIdes.filter((ide) => ide.available);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Terminal className="h-5 w-5" />
+          Default IDE for Session Resume
+        </CardTitle>
+        <CardDescription>
+          Choose which application to open when resuming a Claude Code session from the project
+          detail view.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {displayIdes.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            No supported IDEs detected. Install Terminal.app, iTerm2, VS Code, Cursor, or Warp.
+          </p>
+        ) : (
+          <div className="grid gap-2">
+            {displayIdes.map((ide) => (
+              <button
+                key={ide.id}
+                type="button"
+                onClick={() => handleSelect(ide.id)}
+                disabled={isSaving}
+                className={`flex items-center justify-between p-3 rounded-lg border transition-all text-left ${
+                  selectedIde === ide.id
+                    ? "border-primary bg-primary/5 ring-1 ring-primary"
+                    : "border-border hover:border-muted-foreground/50"
+                } ${isSaving ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+              >
+                <span className="font-medium">{ide.name}</span>
+                {selectedIde === ide.id && <Check className="h-4 w-4 text-primary" />}
+              </button>
+            ))}
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground mt-3">
+          Note: VS Code and Cursor will open the project folder. You&apos;ll need to run the resume
+          command in the integrated terminal.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -258,6 +359,8 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6">
+        <IdePreferenceSection />
+
         <HiddenProjectsSection
           projects={hiddenProjects}
           onUnhide={handleUnhideProject}

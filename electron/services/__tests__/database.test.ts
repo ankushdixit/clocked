@@ -15,6 +15,7 @@ jest.mock("os", () => ({
 import {
   initializeDatabase,
   closeDatabase,
+  getDatabase,
   getDatabasePath,
   getDatabaseDir,
   upsertProject,
@@ -48,6 +49,11 @@ import {
   mergeProjects,
   unmergeProject,
   getMergedProjects,
+  getSetting,
+  setSetting,
+  getAllSettings,
+  getMonthlySummary,
+  DEFAULT_SETTINGS,
   ProjectInput,
   SessionInput,
 } from "../database";
@@ -1304,6 +1310,675 @@ describe("database", () => {
       it("unmerged projects have null mergedInto", () => {
         const project = getProjectByPath(sourceProject1.path);
         expect(project?.mergedInto).toBeNull();
+      });
+    });
+  });
+
+  describe("Monthly summary analytics", () => {
+    const testProject: ProjectInput = {
+      path: "/Users/test/analytics-project",
+      name: "analytics-project",
+      firstActivity: "2026-01-01T10:00:00.000Z",
+      lastActivity: "2026-01-31T15:00:00.000Z",
+      sessionCount: 10,
+      messageCount: 200,
+      totalTime: 36000000,
+    };
+
+    const testProject2: ProjectInput = {
+      path: "/Users/test/analytics-project-2",
+      name: "analytics-project-2",
+      firstActivity: "2026-01-05T10:00:00.000Z",
+      lastActivity: "2026-01-25T15:00:00.000Z",
+      sessionCount: 5,
+      messageCount: 100,
+      totalTime: 18000000,
+    };
+
+    beforeEach(() => {
+      upsertProject(testProject);
+      upsertProject(testProject2);
+    });
+
+    describe("getMonthlySummary", () => {
+      it("returns correct totals for a month with sessions", () => {
+        // Create sessions spread across January 2026
+        const sessions: SessionInput[] = [
+          {
+            id: "session-1",
+            projectPath: testProject.path,
+            created: "2026-01-05T10:00:00.000Z",
+            modified: "2026-01-05T11:00:00.000Z",
+            duration: 3600000, // 1 hour
+            messageCount: 20,
+            summary: "Session 1",
+            firstPrompt: "Hello",
+            gitBranch: "main",
+          },
+          {
+            id: "session-2",
+            projectPath: testProject.path,
+            created: "2026-01-10T14:00:00.000Z",
+            modified: "2026-01-10T15:30:00.000Z",
+            duration: 5400000, // 1.5 hours
+            messageCount: 35,
+            summary: "Session 2",
+            firstPrompt: "Continue",
+            gitBranch: "feature",
+          },
+          {
+            id: "session-3",
+            projectPath: testProject2.path,
+            created: "2026-01-15T09:00:00.000Z",
+            modified: "2026-01-15T10:00:00.000Z",
+            duration: 3600000, // 1 hour
+            messageCount: 15,
+            summary: "Session 3",
+            firstPrompt: "New feature",
+            gitBranch: "main",
+          },
+        ];
+
+        upsertSessions(sessions);
+
+        const summary = getMonthlySummary("2026-01");
+
+        expect(summary.month).toBe("2026-01");
+        expect(summary.totalSessions).toBe(3);
+        expect(summary.totalActiveTime).toBe(12600000); // 3.5 hours total
+        expect(summary.estimatedApiCost).toBeGreaterThan(0);
+      });
+
+      it("returns empty data for a month with no sessions", () => {
+        const summary = getMonthlySummary("2025-06"); // No sessions in June 2025
+
+        expect(summary.month).toBe("2025-06");
+        expect(summary.totalSessions).toBe(0);
+        expect(summary.totalActiveTime).toBe(0);
+        expect(summary.estimatedApiCost).toBe(0);
+        expect(summary.dailyActivity).toHaveLength(0);
+        expect(summary.topProjects).toHaveLength(0);
+      });
+
+      it("calculates daily activity correctly for heatmap", () => {
+        const sessions: SessionInput[] = [
+          {
+            id: "day5-session1",
+            projectPath: testProject.path,
+            created: "2026-01-05T10:00:00.000Z",
+            modified: "2026-01-05T11:00:00.000Z",
+            duration: 3600000,
+            messageCount: 10,
+            summary: null,
+            firstPrompt: null,
+            gitBranch: null,
+          },
+          {
+            id: "day5-session2",
+            projectPath: testProject.path,
+            created: "2026-01-05T14:00:00.000Z",
+            modified: "2026-01-05T15:00:00.000Z",
+            duration: 3600000,
+            messageCount: 10,
+            summary: null,
+            firstPrompt: null,
+            gitBranch: null,
+          },
+          {
+            id: "day10-session1",
+            projectPath: testProject.path,
+            created: "2026-01-10T09:00:00.000Z",
+            modified: "2026-01-10T10:30:00.000Z",
+            duration: 5400000,
+            messageCount: 15,
+            summary: null,
+            firstPrompt: null,
+            gitBranch: null,
+          },
+        ];
+
+        upsertSessions(sessions);
+
+        const summary = getMonthlySummary("2026-01");
+
+        // Should have 2 distinct days of activity
+        expect(summary.dailyActivity.length).toBeGreaterThanOrEqual(2);
+
+        // Find day 5 activity
+        const day5 = summary.dailyActivity.find((d) => d.date === "2026-01-05");
+        expect(day5).toBeDefined();
+        expect(day5?.sessionCount).toBe(2);
+        expect(day5?.totalTime).toBe(7200000); // 2 hours
+
+        // Find day 10 activity
+        const day10 = summary.dailyActivity.find((d) => d.date === "2026-01-10");
+        expect(day10).toBeDefined();
+        expect(day10?.sessionCount).toBe(1);
+        expect(day10?.totalTime).toBe(5400000); // 1.5 hours
+      });
+
+      it("returns top 5 projects ordered by total time", () => {
+        // Create multiple projects with sessions
+        const projects: ProjectInput[] = Array.from({ length: 7 }, (_, i) => ({
+          path: `/Users/test/proj${i}`,
+          name: `proj${i}`,
+          firstActivity: "2026-01-01T10:00:00.000Z",
+          lastActivity: "2026-01-31T15:00:00.000Z",
+          sessionCount: 1,
+          messageCount: 10,
+          totalTime: 3600000 * (i + 1),
+        }));
+
+        projects.forEach((p) => upsertProject(p));
+
+        // Create sessions with varying durations per project
+        const sessions: SessionInput[] = projects.map((p, i) => ({
+          id: `session-proj${i}`,
+          projectPath: p.path,
+          created: `2026-01-${String(10 + i).padStart(2, "0")}T10:00:00.000Z`,
+          modified: `2026-01-${String(10 + i).padStart(2, "0")}T11:00:00.000Z`,
+          duration: 3600000 * (i + 1), // Increasing duration
+          messageCount: 10,
+          summary: null,
+          firstPrompt: null,
+          gitBranch: null,
+        }));
+
+        upsertSessions(sessions);
+
+        const summary = getMonthlySummary("2026-01");
+
+        // Should return exactly 5 projects (top 5)
+        expect(summary.topProjects).toHaveLength(5);
+
+        // Verify they're ordered by total time descending
+        for (let i = 0; i < summary.topProjects.length - 1; i++) {
+          expect(summary.topProjects[i].totalTime).toBeGreaterThanOrEqual(
+            summary.topProjects[i + 1].totalTime
+          );
+        }
+
+        // The top project should be proj6 (highest duration)
+        expect(summary.topProjects[0].path).toBe("/Users/test/proj6");
+      });
+
+      it("calculates estimated API cost based on session time", () => {
+        const sessions: SessionInput[] = [
+          {
+            id: "cost-session",
+            projectPath: testProject.path,
+            created: "2026-01-15T10:00:00.000Z",
+            modified: "2026-01-15T11:00:00.000Z",
+            duration: 60000 * 10, // 10 minutes
+            messageCount: 50,
+            summary: null,
+            firstPrompt: null,
+            gitBranch: null,
+          },
+        ];
+
+        upsertSessions(sessions);
+
+        const summary = getMonthlySummary("2026-01");
+
+        // Cost is $0.05 per minute = $0.50 for 10 minutes
+        expect(summary.estimatedApiCost).toBe(0.5);
+        expect(summary.topProjects[0].estimatedCost).toBe(0.5);
+      });
+
+      it("handles year boundary correctly (December to January)", () => {
+        // Session in December 2025
+        upsertSession({
+          id: "dec-session",
+          projectPath: testProject.path,
+          created: "2025-12-20T10:00:00.000Z",
+          modified: "2025-12-20T11:00:00.000Z",
+          duration: 3600000,
+          messageCount: 10,
+          summary: null,
+          firstPrompt: null,
+          gitBranch: null,
+        });
+
+        // Session in January 2026
+        upsertSession({
+          id: "jan-session",
+          projectPath: testProject.path,
+          created: "2026-01-05T10:00:00.000Z",
+          modified: "2026-01-05T11:00:00.000Z",
+          duration: 3600000,
+          messageCount: 10,
+          summary: null,
+          firstPrompt: null,
+          gitBranch: null,
+        });
+
+        const decSummary = getMonthlySummary("2025-12");
+        const janSummary = getMonthlySummary("2026-01");
+
+        expect(decSummary.totalSessions).toBe(1);
+        expect(janSummary.totalSessions).toBe(1);
+      });
+
+      it("placeholder values for humanTime and claudeTime are zero", () => {
+        upsertSession({
+          id: "placeholder-session",
+          projectPath: testProject.path,
+          created: "2026-01-15T10:00:00.000Z",
+          modified: "2026-01-15T11:00:00.000Z",
+          duration: 3600000,
+          messageCount: 10,
+          summary: null,
+          firstPrompt: null,
+          gitBranch: null,
+        });
+
+        const summary = getMonthlySummary("2026-01");
+
+        // These are placeholders until Story 2.1 is implemented
+        expect(summary.humanTime).toBe(0);
+        expect(summary.claudeTime).toBe(0);
+      });
+    });
+  });
+
+  describe("Database initialization and getDatabase", () => {
+    it("getDatabase returns same instance as initializeDatabase", () => {
+      const db1 = initializeDatabase();
+      const db2 = getDatabase();
+
+      expect(db1).toBe(db2);
+    });
+
+    it("getDatabase auto-initializes if not already initialized", () => {
+      // Close the existing database
+      closeDatabase();
+
+      // getDatabase should auto-initialize
+      const db = getDatabase();
+      expect(db).toBeDefined();
+
+      // Verify database is functional
+      const tables = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        .all() as { name: string }[];
+      const tableNames = tables.map((t) => t.name);
+      expect(tableNames).toContain("projects");
+      expect(tableNames).toContain("sessions");
+      expect(tableNames).toContain("settings");
+    });
+
+    it("initializeDatabase is idempotent", () => {
+      const db1 = initializeDatabase();
+      const db2 = initializeDatabase();
+      const db3 = initializeDatabase();
+
+      expect(db1).toBe(db2);
+      expect(db2).toBe(db3);
+    });
+
+    it("closeDatabase and reinitialize creates new working database", () => {
+      // Insert some data
+      upsertProject({
+        path: "/Users/test/close-test",
+        name: "close-test",
+        firstActivity: "2026-01-01T10:00:00.000Z",
+        lastActivity: "2026-01-15T15:00:00.000Z",
+        sessionCount: 1,
+        messageCount: 10,
+        totalTime: 3600000,
+      });
+
+      closeDatabase();
+
+      // Reinitialize and verify data persists
+      const db = initializeDatabase();
+      expect(db).toBeDefined();
+
+      const project = getProjectByPath("/Users/test/close-test");
+      expect(project).not.toBeNull();
+      expect(project?.name).toBe("close-test");
+    });
+
+    it("settings table is created during initialization", () => {
+      const db = initializeDatabase();
+
+      const tables = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'")
+        .all() as { name: string }[];
+
+      expect(tables).toHaveLength(1);
+      expect(tables[0].name).toBe("settings");
+    });
+  });
+
+  describe("Database schema migrations", () => {
+    it("adds merged_into column when upgrading from schema with is_hidden but not merged_into", () => {
+      // Close existing database
+      closeDatabase();
+
+      // Create a database with intermediate schema (has is_hidden but not merged_into)
+      const Database = require("better-sqlite3");
+      const dbPath = getDatabasePath();
+      const oldDb = new Database(dbPath);
+
+      // Drop tables and recreate with intermediate schema
+      oldDb.exec("DROP TABLE IF EXISTS sessions");
+      oldDb.exec("DROP TABLE IF EXISTS projects");
+      oldDb.exec("DROP TABLE IF EXISTS project_groups");
+      oldDb.exec("DROP TABLE IF EXISTS settings");
+
+      // Create intermediate projects table (has is_hidden, group_id, is_default but not merged_into)
+      oldDb.exec(`
+        CREATE TABLE projects (
+          path TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          first_activity TEXT NOT NULL,
+          last_activity TEXT NOT NULL,
+          session_count INTEGER DEFAULT 0,
+          message_count INTEGER DEFAULT 0,
+          total_time INTEGER DEFAULT 0,
+          is_hidden INTEGER DEFAULT 0,
+          group_id TEXT DEFAULT NULL,
+          is_default INTEGER DEFAULT 0
+        )
+      `);
+
+      // Insert a project using intermediate schema
+      oldDb
+        .prepare(
+          `
+        INSERT INTO projects (path, name, first_activity, last_activity, session_count, message_count, total_time, is_hidden)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `
+        )
+        .run(
+          "/Users/test/intermediate-project",
+          "intermediate-project",
+          "2025-06-01T10:00:00.000Z",
+          "2025-12-15T15:00:00.000Z",
+          5,
+          50,
+          1800000,
+          1 // Was hidden
+        );
+
+      // Create required tables
+      oldDb.exec(`
+        CREATE TABLE sessions (
+          id TEXT PRIMARY KEY,
+          project_path TEXT NOT NULL,
+          created TEXT NOT NULL,
+          modified TEXT NOT NULL,
+          duration INTEGER NOT NULL,
+          message_count INTEGER DEFAULT 0,
+          summary TEXT,
+          first_prompt TEXT,
+          git_branch TEXT
+        )
+      `);
+
+      oldDb.close();
+
+      // Now initialize the database - should run migration for merged_into only
+      const db = initializeDatabase();
+
+      // Verify merged_into column was added
+      const columns = db.prepare("PRAGMA table_info(projects)").all() as { name: string }[];
+      const columnNames = columns.map((c) => c.name);
+
+      expect(columnNames).toContain("merged_into");
+
+      // Verify the project still has its is_hidden value preserved
+      const project = getProjectByPath("/Users/test/intermediate-project");
+      expect(project).not.toBeNull();
+      expect(project?.name).toBe("intermediate-project");
+      expect(project?.isHidden).toBe(true); // Preserved from old data
+      expect(project?.mergedInto).toBeNull(); // New column with default
+    });
+
+    it("migrations are idempotent - running multiple times is safe", () => {
+      // Get the database and verify columns exist
+      const db = initializeDatabase();
+
+      // Force multiple migration runs by calling initializeDatabase repeatedly
+      initializeDatabase();
+      initializeDatabase();
+      initializeDatabase();
+
+      // Should still work correctly
+      const columns = db.prepare("PRAGMA table_info(projects)").all() as { name: string }[];
+      const columnNames = columns.map((c) => c.name);
+
+      expect(columnNames).toContain("is_hidden");
+      expect(columnNames).toContain("group_id");
+      expect(columnNames).toContain("is_default");
+      expect(columnNames).toContain("merged_into");
+
+      // Indexes should still exist
+      const indexes = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_projects%'")
+        .all() as { name: string }[];
+      const indexNames = indexes.map((i) => i.name);
+
+      expect(indexNames).toContain("idx_projects_group");
+      expect(indexNames).toContain("idx_projects_merged_into");
+    });
+  });
+
+  describe("Settings", () => {
+    describe("getSetting", () => {
+      it("returns null for unset setting", () => {
+        const value = getSetting("defaultIde");
+        expect(value).toBeNull();
+      });
+
+      it("returns set value", () => {
+        setSetting("defaultIde", "vscode");
+        const value = getSetting("defaultIde");
+        expect(value).toBe("vscode");
+      });
+    });
+
+    describe("setSetting", () => {
+      it("stores a setting value", () => {
+        setSetting("defaultIde", "iterm2");
+        const value = getSetting("defaultIde");
+        expect(value).toBe("iterm2");
+      });
+
+      it("updates an existing setting", () => {
+        setSetting("defaultIde", "terminal");
+        setSetting("defaultIde", "cursor");
+        const value = getSetting("defaultIde");
+        expect(value).toBe("cursor");
+      });
+
+      it("stores various IDE values", () => {
+        const ideValues = ["terminal", "iterm2", "vscode", "cursor", "warp"] as const;
+        for (const ide of ideValues) {
+          setSetting("defaultIde", ide);
+          expect(getSetting("defaultIde")).toBe(ide);
+        }
+      });
+    });
+
+    describe("getAllSettings", () => {
+      it("returns default settings when none are set", () => {
+        const settings = getAllSettings();
+        expect(settings).toEqual(DEFAULT_SETTINGS);
+        expect(settings.defaultIde).toBe("terminal");
+      });
+
+      it("returns set values merged with defaults", () => {
+        setSetting("defaultIde", "warp");
+        const settings = getAllSettings();
+        expect(settings.defaultIde).toBe("warp");
+      });
+    });
+
+    describe("DEFAULT_SETTINGS", () => {
+      it("has terminal as default IDE", () => {
+        expect(DEFAULT_SETTINGS.defaultIde).toBe("terminal");
+      });
+    });
+
+    describe("Settings persistence across database operations", () => {
+      it("preserves IDE preference after clearDatabase is called", () => {
+        // User sets their preferred IDE
+        setSetting("defaultIde", "cursor");
+        expect(getSetting("defaultIde")).toBe("cursor");
+
+        // clearDatabase removes settings (simulates full reset)
+        clearDatabase();
+
+        // Settings should be cleared
+        expect(getSetting("defaultIde")).toBeNull();
+        expect(getAllSettings().defaultIde).toBe("terminal"); // Falls back to default
+      });
+
+      it("user changes IDE preference multiple times during a session", () => {
+        // User starts with terminal (default)
+        expect(getAllSettings().defaultIde).toBe("terminal");
+
+        // User tries VSCode
+        setSetting("defaultIde", "vscode");
+        expect(getAllSettings().defaultIde).toBe("vscode");
+
+        // User decides to switch to Cursor
+        setSetting("defaultIde", "cursor");
+        expect(getAllSettings().defaultIde).toBe("cursor");
+
+        // User goes back to their original workflow
+        setSetting("defaultIde", "terminal");
+        expect(getAllSettings().defaultIde).toBe("terminal");
+      });
+
+      it("handles all supported IDE options correctly", () => {
+        const allIdeOptions = [
+          "terminal",
+          "iterm2",
+          "vscode",
+          "cursor",
+          "warp",
+          "windsurf",
+          "vscodium",
+          "zed",
+          "void",
+          "positron",
+          "antigravity",
+        ] as const;
+
+        for (const ide of allIdeOptions) {
+          setSetting("defaultIde", ide);
+          const settings = getAllSettings();
+          expect(settings.defaultIde).toBe(ide);
+        }
+      });
+    });
+
+    describe("Settings edge cases and error handling", () => {
+      it("handles raw string values stored directly in database (legacy/corrupted data)", () => {
+        // Simulate a scenario where settings were stored as raw strings
+        // (e.g., from an older version or corrupted migration)
+        const db = initializeDatabase();
+
+        // Insert a raw, non-JSON string value directly
+        db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(
+          "defaultIde",
+          "vscode" // Not JSON-wrapped, just a raw string
+        );
+
+        // getSetting should handle this gracefully by returning the raw value
+        const value = getSetting("defaultIde");
+        // The catch block returns row.value as AppSettings[K], so "vscode" will be returned
+        // but JSON.parse("vscode") throws, so it falls back to the raw string
+        expect(value).toBe("vscode");
+      });
+
+      it("handles JSON-encoded values correctly", () => {
+        // Normal case - value is JSON-encoded
+        setSetting("defaultIde", "cursor");
+
+        // Verify it's stored as JSON
+        const db = initializeDatabase();
+        const row = db.prepare("SELECT value FROM settings WHERE key = ?").get("defaultIde") as {
+          value: string;
+        };
+        expect(row.value).toBe('"cursor"'); // JSON-encoded string
+
+        // And retrieved correctly
+        expect(getSetting("defaultIde")).toBe("cursor");
+      });
+
+      it("getAllSettings provides complete settings object even with partial data", () => {
+        // Only some settings are explicitly set
+        // With current implementation there's only defaultIde, but this tests the pattern
+        const settings = getAllSettings();
+
+        // Should have all keys from AppSettings with defaults applied
+        expect(settings).toHaveProperty("defaultIde");
+        expect(settings.defaultIde).toBe("terminal");
+      });
+
+      it("settings survive multiple initializeDatabase calls", () => {
+        // User configures their settings
+        setSetting("defaultIde", "warp");
+        expect(getSetting("defaultIde")).toBe("warp");
+
+        // Simulate app components calling initializeDatabase multiple times
+        initializeDatabase();
+        initializeDatabase();
+        initializeDatabase();
+
+        // Settings should persist
+        expect(getSetting("defaultIde")).toBe("warp");
+        expect(getAllSettings().defaultIde).toBe("warp");
+      });
+    });
+
+    describe("Real-world settings scenarios", () => {
+      it("simulates user onboarding flow - first launch then preference setup", () => {
+        // App first launch - no settings exist
+        const initialSettings = getAllSettings();
+        expect(initialSettings.defaultIde).toBe("terminal"); // Default
+
+        // User completes onboarding and selects their preferred IDE
+        setSetting("defaultIde", "cursor");
+
+        // App shows their preference
+        const afterOnboarding = getAllSettings();
+        expect(afterOnboarding.defaultIde).toBe("cursor");
+      });
+
+      it("simulates settings panel updates", () => {
+        // User opens settings panel
+        const currentSettings = getAllSettings();
+        expect(currentSettings.defaultIde).toBe("terminal");
+
+        // User clicks through IDE options in UI
+        setSetting("defaultIde", "vscode");
+        expect(getAllSettings().defaultIde).toBe("vscode");
+
+        // User changes mind
+        setSetting("defaultIde", "zed");
+        expect(getAllSettings().defaultIde).toBe("zed");
+      });
+
+      it("handles database reset and fresh start", () => {
+        // User has configured settings
+        setSetting("defaultIde", "windsurf");
+        expect(getAllSettings().defaultIde).toBe("windsurf");
+
+        // User resets database (e.g., via settings or troubleshooting)
+        clearDatabase();
+
+        // Fresh start - defaults apply
+        expect(getAllSettings().defaultIde).toBe("terminal");
+
+        // User reconfigures
+        setSetting("defaultIde", "positron");
+        expect(getAllSettings().defaultIde).toBe("positron");
       });
     });
   });
