@@ -1,6 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import DashboardPage from "../page";
 
+// Mock @refinedev/core
+jest.mock("@refinedev/core", () => ({
+  useList: jest.fn(() => ({
+    result: { data: [] },
+    query: { isLoading: false },
+  })),
+}));
+
 // Mock the mockData module to have predictable values
 jest.mock("@/lib/mockData", () => ({
   mockSummary: {

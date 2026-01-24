@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { HourlyDistributionCard } from "../HourlyDistributionCard";
 
 // Mock the data generation function
@@ -46,8 +46,9 @@ describe("HourlyDistributionCard Component", () => {
 
   it("renders 24 hour bars", () => {
     const { container } = render(<HourlyDistributionCard />);
-    // Each hour has a bar container with title attribute like "X:00 - Y sessions"
-    const hourBars = container.querySelectorAll('[title*=":00 -"]');
+    // Each hour has a bar container (flex-1 divs inside the h-32 container)
+    const barContainer = container.querySelector(".h-32");
+    const hourBars = barContainer?.querySelectorAll(".flex-1");
     expect(hourBars).toHaveLength(24);
   });
 
@@ -82,14 +83,23 @@ describe("HourlyDistributionCard Component", () => {
     expect(peakBars.length).toBe(1);
   });
 
-  it("includes tooltip information for each hour bar", () => {
+  it("shows tooltip on hover with session information", () => {
     const { container } = render(<HourlyDistributionCard />);
-    // Check that bars have title attributes with session counts
-    const barWith45Sessions = container.querySelector('[title="14:00 - 45 sessions"]');
-    expect(barWith45Sessions).toBeInTheDocument();
+    // Get the hour bars (flex-1 divs inside the h-32 container)
+    const barContainer = container.querySelector(".h-32");
+    const hourBars = barContainer?.querySelectorAll(".flex-1");
 
-    const barWithZeroSessions = container.querySelector('[title="2:00 - 0 sessions"]');
-    expect(barWithZeroSessions).toBeInTheDocument();
+    // Hover over the 15th bar (index 14, which is 2pm with 45 sessions)
+    if (hourBars && hourBars[14]) {
+      fireEvent.mouseEnter(hourBars[14]);
+      // Tooltip should show the time range and session count
+      expect(screen.getByText("2pm - 3pm")).toBeInTheDocument();
+      expect(screen.getByText("45 sessions")).toBeInTheDocument();
+
+      // Mouse leave should hide the tooltip
+      fireEvent.mouseLeave(hourBars[14]);
+      expect(screen.queryByText("2pm - 3pm")).not.toBeInTheDocument();
+    }
   });
 
   it("renders within a Card component structure", () => {

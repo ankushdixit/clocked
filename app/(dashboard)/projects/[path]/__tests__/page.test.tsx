@@ -62,12 +62,20 @@ jest.mock("@/components/projects/ToolUsageCard", () => ({
 }));
 
 jest.mock("@/components/projects/MergedProjectsCard", () => ({
-  MergedProjectsCard: (props: { mergedProjects: Project[] }) => (
+  MergedProjectsCard: (props: {
+    mergedProjects: Project[];
+    onUnmerge?: (path: string) => void;
+  }) => (
     <div data-testid="merged-projects-card">
       {props.mergedProjects.map((p) => (
-        <span key={p.path} data-testid={`merged-${p.path}`}>
-          {p.name}
-        </span>
+        <div key={p.path}>
+          <span data-testid={`merged-${p.path}`}>{p.name}</span>
+          {props.onUnmerge && (
+            <button data-testid={`unmerge-${p.path}`} onClick={() => props.onUnmerge?.(p.path)}>
+              Unmerge
+            </button>
+          )}
+        </div>
       ))}
     </div>
   ),
@@ -290,11 +298,60 @@ describe("ProjectDetailPage", () => {
       expect(screen.queryByText(/merged/)).not.toBeInTheDocument();
     });
 
-    it("renders MergedProjectsCard with mock data when no real merged projects", () => {
-      // Currently showing mock merged projects for design preview
+    it("does not render MergedProjectsCard when no real merged projects", () => {
       setupMocks({ allProjects: [createMockProject()] });
       render(<ProjectDetailPage />);
-      expect(screen.getByTestId("merged-projects-card")).toBeInTheDocument();
+      expect(screen.queryByTestId("merged-projects-card")).not.toBeInTheDocument();
+    });
+
+    it("calls onUnmerge when unmerge button is clicked", () => {
+      const mockMutate = jest.fn();
+      const mockInvalidate = jest.fn();
+      mockUseUpdate.mockReturnValue({ mutate: mockMutate });
+      mockUseInvalidate.mockReturnValue(mockInvalidate);
+
+      const mergedProject = createMockProject({
+        path: "/Users/test/merged-project",
+        name: "merged-project",
+        mergedInto: "/Users/test/my-project",
+      });
+
+      mockUseOne.mockReturnValue({
+        query: { isLoading: false },
+        result: createMockProject(),
+      });
+
+      mockUseList
+        .mockReturnValueOnce({
+          query: { isLoading: false },
+          result: { data: [createMockProject(), mergedProject] },
+        })
+        .mockReturnValueOnce({
+          query: { isLoading: false },
+          result: { data: [] },
+        })
+        .mockReturnValueOnce({
+          query: { isLoading: false },
+          result: { data: [] },
+        });
+
+      render(<ProjectDetailPage />);
+
+      // Click the unmerge button for the merged project
+      const unmergeButton = screen.getByTestId("unmerge-/Users/test/merged-project");
+      fireEvent.click(unmergeButton);
+
+      // Verify updateProject was called with correct params
+      expect(mockMutate).toHaveBeenCalledWith(
+        {
+          resource: "projects",
+          id: "/Users/test/merged-project",
+          values: { mergedInto: null },
+        },
+        expect.objectContaining({
+          onSuccess: expect.any(Function),
+        })
+      );
     });
   });
 

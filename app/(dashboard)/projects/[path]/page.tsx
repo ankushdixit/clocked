@@ -93,59 +93,6 @@ const MOCK_DATA = {
   timeTrend: [8, 12, 10, 15, 14, 18, 16],
   costTrend: [50, 120, 180, 250, 320, 380, 412],
   messageTrend: [45, 52, 48, 65, 58, 72, 68],
-  // Mock merged projects for testing grid layout (set to empty array to hide)
-  mergedProjects: [
-    {
-      path: "/Users/dev/projects/feature-auth",
-      name: "feature-auth",
-      sessionCount: 12,
-      totalTime: 8 * 60 * 60 * 1000,
-      messageCount: 245,
-      firstActivity: "2024-01-10T10:00:00Z",
-      lastActivity: "2024-01-15T18:00:00Z",
-      mergedInto: null,
-    },
-    {
-      path: "/Users/dev/projects/bugfix-login",
-      name: "bugfix-login",
-      sessionCount: 5,
-      totalTime: 2 * 60 * 60 * 1000,
-      messageCount: 89,
-      firstActivity: "2024-01-12T09:00:00Z",
-      lastActivity: "2024-01-12T16:00:00Z",
-      mergedInto: null,
-    },
-    {
-      path: "/Users/dev/projects/refactor-api",
-      name: "refactor-api",
-      sessionCount: 8,
-      totalTime: 5 * 60 * 60 * 1000,
-      messageCount: 156,
-      firstActivity: "2024-01-08T11:00:00Z",
-      lastActivity: "2024-01-14T14:00:00Z",
-      mergedInto: null,
-    },
-    {
-      path: "/Users/dev/projects/docs-update",
-      name: "docs-update",
-      sessionCount: 3,
-      totalTime: 1 * 60 * 60 * 1000,
-      messageCount: 42,
-      firstActivity: "2024-01-13T10:00:00Z",
-      lastActivity: "2024-01-13T12:00:00Z",
-      mergedInto: null,
-    },
-    {
-      path: "/Users/dev/projects/test-coverage",
-      name: "test-coverage",
-      sessionCount: 6,
-      totalTime: 3 * 60 * 60 * 1000,
-      messageCount: 98,
-      firstActivity: "2024-01-11T08:00:00Z",
-      lastActivity: "2024-01-16T17:00:00Z",
-      mergedInto: null,
-    },
-  ] as Project[],
 };
 
 /** Hero metrics row - matches dashboard pattern */
@@ -258,7 +205,7 @@ function PageHeader({
         size="icon"
         onClick={onBack}
         aria-label="Back to projects"
-        className="flex-shrink-0"
+        className="flex-shrink-0 cursor-pointer"
       >
         <ArrowLeft className="h-4 w-4" />
       </Button>
@@ -282,7 +229,12 @@ function PageHeader({
 function SessionsSection({ sessions }: { sessions: Session[] }) {
   return (
     <section>
-      <h2 className="text-lg font-semibold mb-3">Recent Sessions</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-semibold">Recent Sessions</h2>
+        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+          {sessions.length}
+        </span>
+      </div>
       {sessions.length === 0 ? (
         <EmptyState
           title="No sessions found for this project"
@@ -363,15 +315,14 @@ function CurrentDesign({
   allSessions: Session[];
   onUnmerge: (path: string) => void;
 }) {
-  // Use mock merged projects for design preview if no real merged projects exist
-  const displayMergedProjects =
-    mergedProjects.length > 0 ? mergedProjects : MOCK_DATA.mergedProjects;
+  // Only show MergedProjectsCard when there are real merged projects
+  const hasRealMergedProjects = mergedProjects.length > 0;
 
   return (
     <>
       <ProjectMetrics project={project} sessions={allSessions} />
-      {displayMergedProjects.length > 0 && (
-        <MergedProjectsCard mergedProjects={displayMergedProjects} onUnmerge={onUnmerge} />
+      {hasRealMergedProjects && (
+        <MergedProjectsCard mergedProjects={mergedProjects} onUnmerge={onUnmerge} />
       )}
       <SessionsSection sessions={allSessions} />
     </>

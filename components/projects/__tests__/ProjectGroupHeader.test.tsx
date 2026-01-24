@@ -57,7 +57,7 @@ describe("ProjectGroupHeader", () => {
     it("shows group color indicator with specified color", () => {
       const onToggleCollapse = jest.fn();
 
-      render(
+      const { container } = render(
         <ProjectGroupHeader
           group={mockGroup}
           projectCount={3}
@@ -66,16 +66,17 @@ describe("ProjectGroupHeader", () => {
         />
       );
 
-      // The color indicator is a div with inline style
-      const button = screen.getByRole("button");
-      const colorIndicator = button.querySelector('[style*="background-color"]');
-      expect(colorIndicator).toHaveStyle({ backgroundColor: "#3b82f6" });
+      // The color indicator is a div with inline style inside the collapse button
+      const colorIndicator = container.querySelector(
+        '[style*="background-color: rgb(59, 130, 246)"]'
+      );
+      expect(colorIndicator).toBeInTheDocument();
     });
 
     it("shows default gray color when group color is null", () => {
       const onToggleCollapse = jest.fn();
 
-      render(
+      const { container } = render(
         <ProjectGroupHeader
           group={mockGroupWithoutColor}
           projectCount={2}
@@ -84,9 +85,10 @@ describe("ProjectGroupHeader", () => {
         />
       );
 
-      const button = screen.getByRole("button");
-      const colorIndicator = button.querySelector('[style*="background-color"]');
-      expect(colorIndicator).toHaveStyle({ backgroundColor: "#6b7280" });
+      const colorIndicator = container.querySelector(
+        '[style*="background-color: rgb(107, 114, 128)"]'
+      );
+      expect(colorIndicator).toBeInTheDocument();
     });
 
     it("calls onToggleCollapse when clicking header", async () => {
@@ -102,8 +104,9 @@ describe("ProjectGroupHeader", () => {
         />
       );
 
-      const headerButton = screen.getByRole("button");
-      await user.click(headerButton);
+      // Click on the collapse button (contains the group name)
+      const collapseButton = screen.getByText("Work Projects").closest("button");
+      await user.click(collapseButton!);
 
       expect(onToggleCollapse).toHaveBeenCalledTimes(1);
     });
@@ -120,10 +123,9 @@ describe("ProjectGroupHeader", () => {
         />
       );
 
-      // ChevronDown has class h-3.5 w-3.5 and should be in the document when expanded
-      const button = screen.getByRole("button");
-      // Lucide icons are rendered as SVG elements
-      const chevronDown = button.querySelector("svg.lucide-chevron-down");
+      // ChevronDown should be in the collapse button when expanded
+      const collapseButton = screen.getByText("Work Projects").closest("button");
+      const chevronDown = collapseButton?.querySelector("svg.lucide-chevron-down");
       expect(chevronDown).toBeInTheDocument();
     });
 
@@ -139,9 +141,95 @@ describe("ProjectGroupHeader", () => {
         />
       );
 
-      const button = screen.getByRole("button");
-      const chevronRight = button.querySelector("svg.lucide-chevron-right");
+      const collapseButton = screen.getByText("Work Projects").closest("button");
+      const chevronRight = collapseButton?.querySelector("svg.lucide-chevron-right");
       expect(chevronRight).toBeInTheDocument();
+    });
+
+    it("renders move up and move down buttons", () => {
+      const onToggleCollapse = jest.fn();
+
+      render(
+        <ProjectGroupHeader
+          group={mockGroup}
+          projectCount={5}
+          isCollapsed={false}
+          onToggleCollapse={onToggleCollapse}
+          canMoveUp={true}
+          canMoveDown={true}
+          onMoveUp={jest.fn()}
+          onMoveDown={jest.fn()}
+        />
+      );
+
+      expect(screen.getByRole("button", { name: /move group up/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /move group down/i })).toBeInTheDocument();
+    });
+
+    it("disables move up button when canMoveUp is false", () => {
+      const onToggleCollapse = jest.fn();
+
+      render(
+        <ProjectGroupHeader
+          group={mockGroup}
+          projectCount={5}
+          isCollapsed={false}
+          onToggleCollapse={onToggleCollapse}
+          canMoveUp={false}
+          canMoveDown={true}
+          onMoveUp={jest.fn()}
+          onMoveDown={jest.fn()}
+        />
+      );
+
+      expect(screen.getByRole("button", { name: /move group up/i })).toBeDisabled();
+      expect(screen.getByRole("button", { name: /move group down/i })).toBeEnabled();
+    });
+
+    it("calls onMoveUp when move up button is clicked", async () => {
+      const user = userEvent.setup();
+      const onToggleCollapse = jest.fn();
+      const onMoveUp = jest.fn();
+
+      render(
+        <ProjectGroupHeader
+          group={mockGroup}
+          projectCount={5}
+          isCollapsed={false}
+          onToggleCollapse={onToggleCollapse}
+          canMoveUp={true}
+          canMoveDown={true}
+          onMoveUp={onMoveUp}
+          onMoveDown={jest.fn()}
+        />
+      );
+
+      await user.click(screen.getByRole("button", { name: /move group up/i }));
+      expect(onMoveUp).toHaveBeenCalledTimes(1);
+      expect(onToggleCollapse).not.toHaveBeenCalled();
+    });
+
+    it("calls onMoveDown when move down button is clicked", async () => {
+      const user = userEvent.setup();
+      const onToggleCollapse = jest.fn();
+      const onMoveDown = jest.fn();
+
+      render(
+        <ProjectGroupHeader
+          group={mockGroup}
+          projectCount={5}
+          isCollapsed={false}
+          onToggleCollapse={onToggleCollapse}
+          canMoveUp={true}
+          canMoveDown={true}
+          onMoveUp={jest.fn()}
+          onMoveDown={onMoveDown}
+        />
+      );
+
+      await user.click(screen.getByRole("button", { name: /move group down/i }));
+      expect(onMoveDown).toHaveBeenCalledTimes(1);
+      expect(onToggleCollapse).not.toHaveBeenCalled();
     });
   });
 
@@ -205,8 +293,8 @@ describe("ProjectGroupHeader", () => {
         />
       );
 
-      // Should not render a button element for ungrouped section
-      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+      // Should not render any button elements for ungrouped section (no collapse, no reorder)
+      expect(screen.queryAllByRole("button")).toHaveLength(0);
     });
 
     it("does not call onToggleCollapse when clicked", async () => {
@@ -229,7 +317,7 @@ describe("ProjectGroupHeader", () => {
       expect(onToggleCollapse).not.toHaveBeenCalled();
     });
 
-    it("does not show chevron icons", () => {
+    it("does not show chevron icons for collapse or reorder", () => {
       const onToggleCollapse = jest.fn();
 
       const { container } = render(
@@ -241,11 +329,14 @@ describe("ProjectGroupHeader", () => {
         />
       );
 
+      // No collapse chevrons
       const chevronDown = container.querySelector("svg.lucide-chevron-down");
       const chevronRight = container.querySelector("svg.lucide-chevron-right");
+      const chevronUp = container.querySelector("svg.lucide-chevron-up");
 
       expect(chevronDown).not.toBeInTheDocument();
       expect(chevronRight).not.toBeInTheDocument();
+      expect(chevronUp).not.toBeInTheDocument();
     });
   });
 });

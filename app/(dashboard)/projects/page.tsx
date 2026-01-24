@@ -57,6 +57,7 @@ export default function ProjectsPage() {
   });
 
   const { mutate: updateProject } = useUpdate<Project>();
+  const { mutate: updateGroup } = useUpdate<ProjectGroup>();
 
   const handleSetHidden = (project: Project, hidden: boolean) => {
     updateProject(
@@ -118,6 +119,43 @@ export default function ProjectsPage() {
     );
   };
 
+  const handleReorderGroup = (groupId: string, direction: "up" | "down") => {
+    const groups = groupsResult.data ?? [];
+    const currentIndex = groups.findIndex((g) => g.id === groupId);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= groups.length) return;
+
+    const currentGroup = groups[currentIndex];
+    const targetGroup = groups[targetIndex];
+
+    // Swap sort orders
+    updateGroup(
+      {
+        resource: "groups",
+        id: currentGroup.id,
+        values: { sortOrder: targetGroup.sortOrder },
+      },
+      {
+        onSuccess: () => {
+          updateGroup(
+            {
+              resource: "groups",
+              id: targetGroup.id,
+              values: { sortOrder: currentGroup.sortOrder },
+            },
+            {
+              onSuccess: () => {
+                invalidate({ resource: "groups", invalidates: ["list"] });
+              },
+            }
+          );
+        },
+      }
+    );
+  };
+
   if (projectsQuery.isLoading || groupsQuery.isLoading) {
     return <LoadingState />;
   }
@@ -143,6 +181,7 @@ export default function ProjectsPage() {
         onSetGroup={handleSetGroup}
         onMerge={handleMerge}
         onUnmerge={handleUnmerge}
+        onReorderGroup={handleReorderGroup}
       />
     </div>
   );

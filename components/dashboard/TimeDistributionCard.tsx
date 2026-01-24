@@ -1,11 +1,75 @@
 "use client";
 
+import { useState, useRef } from "react";
 import { PieChart } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatDuration } from "@/lib/formatters/time";
 import { generateEnhancedProjects } from "@/lib/mockData";
+import type { Project } from "@/types/electron";
 
-export function TimeDistributionCard() {
-  const projects = generateEnhancedProjects();
+// Project colors for visual distinction
+const PROJECT_COLORS = [
+  "#3b82f6", // blue
+  "#10b981", // emerald
+  "#f59e0b", // amber
+  "#ec4899", // pink
+  "#8b5cf6", // violet
+  "#06b6d4", // cyan
+  "#f97316", // orange
+  "#84cc16", // lime
+];
+
+interface TooltipData {
+  name: string;
+  totalTime: number;
+  percentage: number;
+  x: number;
+  y: number;
+}
+
+function PieTooltip({ tooltip }: { tooltip: TooltipData }) {
+  return (
+    <div
+      className="fixed z-50 px-2 py-1 text-xs bg-popover text-popover-foreground rounded shadow-md border pointer-events-none"
+      style={{
+        left: tooltip.x,
+        top: tooltip.y,
+        transform: "translate(-50%, -100%)",
+      }}
+    >
+      <div className="font-medium">{tooltip.name}</div>
+      <div className="text-muted-foreground">
+        {formatDuration(tooltip.totalTime)} ({tooltip.percentage.toFixed(1)}%)
+      </div>
+    </div>
+  );
+}
+
+interface TimeDistributionCardProps {
+  projects?: Project[];
+}
+
+export function TimeDistributionCard({ projects: realProjects }: TimeDistributionCardProps) {
+  const [tooltip, setTooltip] = useState<TooltipData | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  // Use real projects if available, otherwise fall back to mock data
+  const mockProjects = generateEnhancedProjects();
+
+  const projects =
+    realProjects && realProjects.length > 0
+      ? realProjects
+          .filter((p) => !p.mergedInto && p.totalTime > 0)
+          .sort((a, b) => b.totalTime - a.totalTime)
+          .slice(0, 8)
+          .map((p, index) => ({
+            name: p.name,
+            path: p.path,
+            totalTime: p.totalTime,
+            color: PROJECT_COLORS[index % PROJECT_COLORS.length],
+          }))
+      : mockProjects;
+
   const totalTime = projects.reduce((sum, p) => sum + p.totalTime, 0);
 
   // Calculate segments for pie chart
@@ -40,6 +104,22 @@ export function TimeDistributionCard() {
     };
   };
 
+  const handleMouseEnter = (
+    e: React.MouseEvent<SVGPathElement>,
+    seg: { name: string; totalTime: number; percentage: number }
+  ) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltip({
+      name: seg.name,
+      totalTime: seg.totalTime,
+      percentage: seg.percentage,
+      x: rect.left + rect.width / 2,
+      y: rect.top - 8,
+    });
+  };
+
+  const handleMouseLeave = () => setTooltip(null);
+
   return (
     <Card className="h-full flex flex-col overflow-hidden">
       <CardHeader className="pb-1">
@@ -51,7 +131,7 @@ export function TimeDistributionCard() {
       <CardContent className="flex-1 flex flex-col justify-end overflow-hidden">
         {/* Large Pie chart with labels inside */}
         <div className="flex items-center justify-center">
-          <svg viewBox="0 0 100 100" className="w-full max-w-[240px] h-auto">
+          <svg ref={svgRef} viewBox="0 0 100 100" className="w-full max-w-[240px] h-auto">
             {segments.map((seg) => {
               const startAngle = (seg.start / 100) * 360;
               const endAngle = ((seg.start + seg.percentage) / 100) * 360;
@@ -59,7 +139,13 @@ export function TimeDistributionCard() {
 
               return (
                 <g key={seg.path}>
-                  <path d={createArcPath(startAngle, endAngle, 45)} fill={seg.color} />
+                  <path
+                    d={createArcPath(startAngle, endAngle, 45)}
+                    fill={seg.color}
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                    onMouseEnter={(e) => handleMouseEnter(e, seg)}
+                    onMouseLeave={handleMouseLeave}
+                  />
                   {seg.percentage >= 5 && (
                     <text
                       x={labelPos.x}
@@ -69,6 +155,7 @@ export function TimeDistributionCard() {
                       fill="white"
                       fontSize="5"
                       fontWeight="bold"
+                      className="pointer-events-none"
                     >
                       {seg.percentage.toFixed(0)}%
                     </text>
@@ -93,6 +180,7 @@ export function TimeDistributionCard() {
             </div>
           ))}
         </div>
+        {tooltip && <PieTooltip tooltip={tooltip} />}
       </CardContent>
     </Card>
   );

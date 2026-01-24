@@ -13,6 +13,7 @@
 
 import { format } from "date-fns";
 import { Calendar } from "lucide-react";
+import { useList } from "@refinedev/core";
 import { mockSummary } from "@/lib/mockData";
 import {
   ActivityHeatmap,
@@ -26,9 +27,18 @@ import {
   TimeDistributionCard,
   HumanAIRatioCard,
 } from "@/components/dashboard";
+import type { Project } from "@/types/electron";
 
 export default function DashboardPage() {
   const currentMonth = format(new Date(), "MMMM yyyy");
+
+  // Fetch real projects for TopProjectsCard and TimeDistributionCard
+  const { result: projectsResult } = useList<Project>({
+    resource: "projects",
+    pagination: { pageSize: 1000 },
+  });
+
+  const projects = projectsResult.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -86,10 +96,10 @@ export default function DashboardPage() {
           - <936px: stacked (3×1) */}
       <div className="grid grid-cols-1 min-[936px]:grid-cols-2 xl:grid-cols-[5fr_3fr_7fr] gap-4">
         <div className="col-span-1">
-          <TopProjectsCard />
+          <TopProjectsCard projects={projects} />
         </div>
         <div className="col-span-1 [&>*]:h-full">
-          <TimeDistributionCard />
+          <TimeDistributionCard projects={projects} />
         </div>
         <div className="min-[936px]:col-span-2 xl:col-span-1 [&>*]:h-full">
           <HumanAIRatioCard />

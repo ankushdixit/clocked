@@ -24,6 +24,7 @@ interface ProjectsListProps {
   onSetGroup: (project: Project, groupId: string | null) => void;
   onMerge: (sourcePaths: string[], targetPath: string) => void;
   onUnmerge: (path: string) => void;
+  onReorderGroup?: (groupId: string, direction: "up" | "down") => void;
 }
 
 /**
@@ -36,6 +37,7 @@ export function ProjectsList({
   onSetGroup,
   onMerge,
   onUnmerge,
+  onReorderGroup,
 }: ProjectsListProps) {
   const {
     sortField,
@@ -82,26 +84,37 @@ export function ProjectsList({
 
       {/* Project List */}
       <div className="space-y-8">
-        {groupedProjects.map(({ group, projects: groupProjects }) => (
-          <ProjectGroupSection
-            key={group?.id ?? "ungrouped"}
-            group={group}
-            projects={groupProjects}
-            groups={groups}
-            isCollapsed={group ? collapsedGroups.has(group.id) : false}
-            onToggleCollapse={() => group && toggleGroupCollapse(group.id)}
-            showHeader={group !== null || (groups.length > 0 && groupedProjects.length > 1)}
-            getAggregatedProject={getAggregatedProject}
-            mergedByPrimary={mergedByPrimary}
-            isSelectMode={isSelectMode}
-            selectedProjects={selectedProjects}
-            onRowClick={handleRowClick}
-            onSetHidden={onSetHidden}
-            onSetGroup={onSetGroup}
-            onUnmerge={onUnmerge}
-            onToggleSelection={toggleProjectSelection}
-          />
-        ))}
+        {groupedProjects.map(({ group, projects: groupProjects }) => {
+          // Calculate reorder capabilities (only for real groups, not ungrouped)
+          const groupIndex = group ? groups.findIndex((g) => g.id === group.id) : -1;
+          const canMoveUp = group !== null && groupIndex > 0;
+          const canMoveDown = group !== null && groupIndex < groups.length - 1;
+
+          return (
+            <ProjectGroupSection
+              key={group?.id ?? "ungrouped"}
+              group={group}
+              projects={groupProjects}
+              groups={groups}
+              isCollapsed={group ? collapsedGroups.has(group.id) : false}
+              onToggleCollapse={() => group && toggleGroupCollapse(group.id)}
+              showHeader={group !== null || (groups.length > 0 && groupedProjects.length > 1)}
+              getAggregatedProject={getAggregatedProject}
+              mergedByPrimary={mergedByPrimary}
+              isSelectMode={isSelectMode}
+              selectedProjects={selectedProjects}
+              onRowClick={handleRowClick}
+              onSetHidden={onSetHidden}
+              onSetGroup={onSetGroup}
+              onUnmerge={onUnmerge}
+              onToggleSelection={toggleProjectSelection}
+              canMoveUp={canMoveUp}
+              canMoveDown={canMoveDown}
+              onMoveUp={() => group && onReorderGroup?.(group.id, "up")}
+              onMoveDown={() => group && onReorderGroup?.(group.id, "down")}
+            />
+          );
+        })}
       </div>
 
       {filteredProjects.length === 0 && (
