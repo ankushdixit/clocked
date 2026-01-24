@@ -10,7 +10,7 @@
  * 4. Human + AI Split - Breakdown of the active time (split bar)
  */
 
-import { Clock } from "lucide-react";
+import { Clock, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDuration } from "@/lib/formatters/time";
 
@@ -27,6 +27,8 @@ interface TimeBreakdownCardProps {
   humanTime: number;
   /** AI/Claude time in milliseconds */
   aiTime: number;
+  /** Whether time split data is loading */
+  isLoading?: boolean;
 }
 
 /** Format clock time span as readable string */
@@ -130,6 +132,38 @@ function SplitBar({
   );
 }
 
+/** Loading skeleton for time bars */
+function LoadingBar({ widthPercent }: { widthPercent: number }) {
+  return (
+    <div className="flex justify-center">
+      <div
+        className="h-8 rounded-md bg-muted animate-pulse"
+        style={{ width: `${widthPercent}%` }}
+      />
+    </div>
+  );
+}
+
+/** Loading skeleton for split bar */
+function LoadingSplitBar({ widthPercent }: { widthPercent: number }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-center">
+        <div
+          className="h-8 rounded-md bg-muted animate-pulse"
+          style={{ width: `${widthPercent}%` }}
+        />
+      </div>
+      <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          <span>Calculating time split...</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TimeBreakdownCard({
   clockStart,
   clockEnd,
@@ -137,6 +171,7 @@ export function TimeBreakdownCard({
   filteredSessionTime,
   humanTime,
   aiTime,
+  isLoading = false,
 }: TimeBreakdownCardProps) {
   // Calculate human vs AI percentages
   const total = humanTime + aiTime;
@@ -160,6 +195,7 @@ export function TimeBreakdownCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-4 space-y-2 flex-1 flex flex-col justify-center">
+        {/* Clock Time and Session Time are always available */}
         <TimeBar
           label="Clock Time"
           value={formatClockSpan(clockStart, clockEnd)}
@@ -172,19 +208,30 @@ export function TimeBreakdownCard({
           widthPercent={FUNNEL_WIDTHS.session}
           gradient="linear-gradient(90deg, #3b82f6, #8b5cf6)"
         />
-        <TimeBar
-          label="Active Time"
-          value={formatDuration(filteredSessionTime)}
-          widthPercent={FUNNEL_WIDTHS.active}
-          gradient="linear-gradient(90deg, #f59e0b, #f97316)"
-        />
-        <SplitBar
-          humanTime={formatDuration(humanTime)}
-          aiTime={formatDuration(aiTime)}
-          humanPercent={humanPercent}
-          claudePercent={claudePercent}
-          widthPercent={FUNNEL_WIDTHS.split}
-        />
+
+        {/* Active Time and Split Bar show loading state while calculating */}
+        {isLoading ? (
+          <>
+            <LoadingBar widthPercent={FUNNEL_WIDTHS.active} />
+            <LoadingSplitBar widthPercent={FUNNEL_WIDTHS.split} />
+          </>
+        ) : (
+          <>
+            <TimeBar
+              label="Active Time"
+              value={formatDuration(filteredSessionTime)}
+              widthPercent={FUNNEL_WIDTHS.active}
+              gradient="linear-gradient(90deg, #f59e0b, #f97316)"
+            />
+            <SplitBar
+              humanTime={formatDuration(humanTime)}
+              aiTime={formatDuration(aiTime)}
+              humanPercent={humanPercent}
+              claudePercent={claudePercent}
+              widthPercent={FUNNEL_WIDTHS.split}
+            />
+          </>
+        )}
       </CardContent>
     </Card>
   );

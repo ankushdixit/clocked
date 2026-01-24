@@ -36,6 +36,7 @@ const mockElectron = {
     getByProject: jest.fn(),
     getByDateRange: jest.fn(),
     getCount: jest.fn(),
+    getTimeSplit: jest.fn(),
     resume: jest.fn(),
   },
   data: {

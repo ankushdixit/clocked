@@ -36,6 +36,13 @@ import {
   claudeProjectsExist,
   getClaudeProjectsPath,
 } from "./services/session-parser.js";
+import { encodeProjectPath } from "./services/path-decoder.js";
+import { parseJsonlMessages } from "./services/parsers/jsonl-parser.js";
+import {
+  calculateTimeSplit,
+  aggregateTimeSplits,
+  type TimeSplit,
+} from "./services/calculators/time-calculator.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -367,6 +374,66 @@ ipcMain.handle("sessions:getCount", () => {
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : "Failed to get session count",
+    };
+  }
+});
+
+/**
+ * Get JSONL file path for a session
+ */
+function getSessionJsonlPath(projectPath: string, sessionId: string): string {
+  const claudeProjectsPath = getClaudeProjectsPath();
+  const encodedPath = encodeProjectPath(projectPath);
+  return path.join(claudeProjectsPath, encodedPath, `${sessionId}.jsonl`);
+}
+
+// IPC Handler - Get time split for a project (aggregated across all sessions)
+ipcMain.handle("sessions:getTimeSplit", async (_event, { projectPath }) => {
+  try {
+    // Get all sessions for this project
+    const { sessions } = getSessionsByProject(projectPath);
+
+    if (sessions.length === 0) {
+      return {
+        timeSplit: {
+          activeTime: 0,
+          humanTime: 0,
+          claudeTime: 0,
+          idleTime: 0,
+          humanPercentage: 0,
+          claudePercentage: 0,
+          messagePairCount: 0,
+          gapCount: 0,
+        },
+      };
+    }
+
+    // Calculate time split for each session
+    const sessionTimeSplits: TimeSplit[] = [];
+
+    for (const session of sessions) {
+      const jsonlPath = getSessionJsonlPath(projectPath, session.id);
+
+      // Skip if JSONL file doesn't exist
+      if (!existsSync(jsonlPath)) {
+        continue;
+      }
+
+      const parseResult = await parseJsonlMessages(jsonlPath, session.id);
+
+      if (parseResult.messages.length >= 2) {
+        const timeSplit = calculateTimeSplit(parseResult.messages);
+        sessionTimeSplits.push(timeSplit);
+      }
+    }
+
+    // Aggregate all session time splits
+    const aggregatedTimeSplit = aggregateTimeSplits(sessionTimeSplits);
+
+    return { timeSplit: aggregatedTimeSplit };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Failed to get time split",
     };
   }
 });
