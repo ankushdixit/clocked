@@ -81,6 +81,31 @@ export interface ProjectInput {
   totalTime: number;
 }
 
+/**
+ * App settings data model
+ */
+export interface AppSettings {
+  defaultIde:
+    | "terminal"
+    | "iterm2"
+    | "vscode"
+    | "cursor"
+    | "warp"
+    | "windsurf"
+    | "vscodium"
+    | "zed"
+    | "void"
+    | "positron"
+    | "antigravity";
+}
+
+/**
+ * Default app settings
+ */
+export const DEFAULT_SETTINGS: AppSettings = {
+  defaultIde: "terminal",
+};
+
 // Database singleton
 let db: Database.Database | null = null;
 
@@ -195,6 +220,11 @@ export function initializeDatabase(): Database.Database {
       summary TEXT,
       first_prompt TEXT,
       git_branch TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
     );
 
     CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_path);
@@ -975,6 +1005,7 @@ export function clearDatabase(): void {
   db.exec("DELETE FROM sessions");
   db.exec("DELETE FROM projects");
   db.exec("DELETE FROM project_groups");
+  db.exec("DELETE FROM settings");
 }
 
 // ============================================================================
@@ -1097,5 +1128,52 @@ export function getMonthlySummary(month: string): MonthlySummary {
     claudeTime: 0, // Placeholder until Story 2.1
     dailyActivity,
     topProjects,
+  };
+}
+
+// ============================================================================
+// Settings Queries
+// ============================================================================
+
+/**
+ * Get a setting value by key
+ * @param key - The setting key
+ * @returns The setting value or null if not found
+ */
+export function getSetting<K extends keyof AppSettings>(key: K): AppSettings[K] | null {
+  const db = getDatabase();
+  const stmt = db.prepare("SELECT value FROM settings WHERE key = ?");
+  const row = stmt.get(key) as { value: string } | undefined;
+  if (!row) return null;
+  try {
+    return JSON.parse(row.value) as AppSettings[K];
+  } catch {
+    return row.value as AppSettings[K];
+  }
+}
+
+/**
+ * Set a setting value
+ * @param key - The setting key
+ * @param value - The setting value
+ */
+export function setSetting<K extends keyof AppSettings>(key: K, value: AppSettings[K]): void {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    INSERT INTO settings (key, value)
+    VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+  `);
+  stmt.run(key, JSON.stringify(value));
+}
+
+/**
+ * Get all settings with defaults
+ * @returns Complete settings object with defaults for missing values
+ */
+export function getAllSettings(): AppSettings {
+  const defaultIde = getSetting("defaultIde");
+  return {
+    defaultIde: defaultIde ?? DEFAULT_SETTINGS.defaultIde,
   };
 }

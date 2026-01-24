@@ -1,7 +1,7 @@
 /**
  * @jest-environment @stryker-mutator/jest-runner/jest-env/jsdom
  */
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import ProjectDetailPage from "../page";
 import { useOne, useList, useUpdate, useInvalidate } from "@refinedev/core";
 import type { Project, Session } from "@/types/electron";
@@ -82,11 +82,25 @@ jest.mock("@/components/projects/MergedProjectsCard", () => ({
 }));
 
 jest.mock("@/components/projects/SessionsList", () => ({
-  SessionsList: (props: { sessions: Session[] }) => (
+  SessionsList: (props: {
+    sessions: Session[];
+    projectPath: string;
+    onResumeSession?: (sessionId: string, projectPath: string) => void;
+    loadingSessionId?: string | null;
+  }) => (
     <div data-testid="sessions-list">
       {props.sessions.map((s) => (
         <div key={s.id} data-testid={`session-${s.id}`}>
-          {s.summary}
+          <span>{s.summary}</span>
+          <button
+            data-testid={`resume-session-${s.id}`}
+            onClick={() => props.onResumeSession?.(s.id, props.projectPath)}
+          >
+            Resume
+          </button>
+          {props.loadingSessionId === s.id && (
+            <span data-testid={`loading-${s.id}`}>Loading...</span>
+          )}
         </div>
       ))}
     </div>
@@ -147,20 +161,33 @@ function setupMocks(options: {
     result: project,
   });
 
-  // useList is called 3 times: projects, sessions, merged sessions
-  mockUseList
-    .mockReturnValueOnce({
-      query: { isLoading },
-      result: { data: allProjects },
-    })
-    .mockReturnValueOnce({
-      query: { isLoading },
-      result: { data: sessions },
-    })
-    .mockReturnValueOnce({
-      query: { isLoading: false },
-      result: { data: [] },
-    });
+  // useList is called multiple times and component re-renders, so use mockImplementation
+  // to handle any number of calls with the same pattern
+  let callCount = 0;
+  mockUseList.mockImplementation(() => {
+    const callIndex = callCount % 3; // cycles through 3 hook calls
+    callCount++;
+
+    if (callIndex === 0) {
+      // First call: all projects
+      return {
+        query: { isLoading },
+        result: { data: allProjects },
+      };
+    } else if (callIndex === 1) {
+      // Second call: sessions for project
+      return {
+        query: { isLoading },
+        result: { data: sessions },
+      };
+    } else {
+      // Third call: merged sessions
+      return {
+        query: { isLoading: false },
+        result: { data: [] },
+      };
+    }
+  });
 }
 
 describe("ProjectDetailPage", () => {
@@ -383,6 +410,282 @@ describe("ProjectDetailPage", () => {
       render(<ProjectDetailPage />);
       // Empty state shown when no sessions
       expect(screen.getByText("No sessions found for this project")).toBeInTheDocument();
+    });
+  });
+
+  describe("Session resume functionality", () => {
+    const mockResume = jest.fn();
+
+    beforeEach(() => {
+      mockResume.mockReset();
+      // Set up window.electron.sessions.resume mock
+      Object.defineProperty(window, "electron", {
+        value: {
+          sessions: {
+            resume: mockResume,
+          },
+        },
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    afterEach(() => {
+      // Clean up window.electron mock
+      delete (window as unknown as { electron?: unknown }).electron;
+    });
+
+    it("successfully resumes a session and shows success message", async () => {
+      mockResume.mockResolvedValue({
+        success: true,
+        message: "Session resumed. Command copied to clipboard - paste in VS Code terminal.",
+      });
+
+      const sessions = [createMockSession({ id: "session-123", summary: "Test session" })];
+      setupMocks({ sessions });
+      render(<ProjectDetailPage />);
+
+      // Click the resume button
+      const resumeButton = screen.getByTestId("resume-session-session-123");
+      fireEvent.click(resumeButton);
+
+      // Verify resume was called with correct parameters
+      expect(mockResume).toHaveBeenCalledWith("session-123", "/Users/test/my-project");
+
+      // Wait for success message to appear
+      const successMessage = await screen.findByText(
+        "Session resumed. Command copied to clipboard - paste in VS Code terminal."
+      );
+      expect(successMessage).toBeInTheDocument();
+    });
+
+    it("shows error message when session resume fails with error response", async () => {
+      mockResume.mockResolvedValue({
+        success: false,
+        error: "IDE not found. Please check your settings.",
+      });
+
+      const sessions = [createMockSession({ id: "session-456", summary: "Test session" })];
+      setupMocks({ sessions });
+      render(<ProjectDetailPage />);
+
+      const resumeButton = screen.getByTestId("resume-session-session-456");
+      fireEvent.click(resumeButton);
+
+      // Wait for error message to appear
+      const errorMessage = await screen.findByText("IDE not found. Please check your settings.");
+      expect(errorMessage).toBeInTheDocument();
+    });
+
+    it("shows generic error message when resume fails without specific error", async () => {
+      mockResume.mockResolvedValue({
+        success: false,
+      });
+
+      const sessions = [createMockSession({ id: "session-789", summary: "Test session" })];
+      setupMocks({ sessions });
+      render(<ProjectDetailPage />);
+
+      const resumeButton = screen.getByTestId("resume-session-session-789");
+      fireEvent.click(resumeButton);
+
+      // Wait for generic error message
+      const errorMessage = await screen.findByText("Failed to resume session");
+      expect(errorMessage).toBeInTheDocument();
+    });
+
+    it("shows error message when resume throws an exception", async () => {
+      mockResume.mockRejectedValue(new Error("Network connection failed"));
+
+      const sessions = [createMockSession({ id: "session-error", summary: "Test session" })];
+      setupMocks({ sessions });
+      render(<ProjectDetailPage />);
+
+      const resumeButton = screen.getByTestId("resume-session-session-error");
+      fireEvent.click(resumeButton);
+
+      // Wait for error message from caught exception
+      const errorMessage = await screen.findByText("Network connection failed");
+      expect(errorMessage).toBeInTheDocument();
+    });
+
+    it("shows generic error when exception is not an Error instance", async () => {
+      mockResume.mockRejectedValue("Unknown error occurred");
+
+      const sessions = [createMockSession({ id: "session-unknown", summary: "Test session" })];
+      setupMocks({ sessions });
+      render(<ProjectDetailPage />);
+
+      const resumeButton = screen.getByTestId("resume-session-session-unknown");
+      fireEvent.click(resumeButton);
+
+      // Wait for generic error message
+      const errorMessage = await screen.findByText("Failed to resume session");
+      expect(errorMessage).toBeInTheDocument();
+    });
+
+    it("shows loading indicator while resuming session", async () => {
+      // Create a promise that we can control
+      let resolveResume: (value: { success: boolean }) => void;
+      const resumePromise = new Promise<{ success: boolean }>((resolve) => {
+        resolveResume = resolve;
+      });
+      mockResume.mockReturnValue(resumePromise);
+
+      const sessions = [createMockSession({ id: "session-loading", summary: "Test session" })];
+      setupMocks({ sessions });
+      render(<ProjectDetailPage />);
+
+      const resumeButton = screen.getByTestId("resume-session-session-loading");
+      fireEvent.click(resumeButton);
+
+      // Loading indicator should appear immediately
+      expect(screen.getByTestId("loading-session-loading")).toBeInTheDocument();
+
+      // Resolve the promise
+      resolveResume!({ success: true });
+
+      // Note: The loading state clears after 500ms timeout, but we verify it was shown
+    });
+
+    it("allows dismissing error message by clicking dismiss button", async () => {
+      mockResume.mockResolvedValue({
+        success: false,
+        error: "Session file not found",
+      });
+
+      const sessions = [
+        createMockSession({ id: "session-dismiss-error", summary: "Test session" }),
+      ];
+      setupMocks({ sessions });
+      render(<ProjectDetailPage />);
+
+      const resumeButton = screen.getByTestId("resume-session-session-dismiss-error");
+      fireEvent.click(resumeButton);
+
+      // Wait for error message to appear
+      const errorMessage = await screen.findByText("Session file not found");
+      expect(errorMessage).toBeInTheDocument();
+
+      // Find and click the dismiss button (it's a sibling of the error message)
+      const dismissButton = screen.getByRole("button", { name: /dismiss/i });
+      fireEvent.click(dismissButton);
+
+      // Error message should be gone
+      expect(screen.queryByText("Session file not found")).not.toBeInTheDocument();
+    });
+
+    it("allows dismissing success message by clicking dismiss button", async () => {
+      mockResume.mockResolvedValue({
+        success: true,
+        message: "Session opened in terminal",
+      });
+
+      const sessions = [
+        createMockSession({ id: "session-dismiss-success", summary: "Test session" }),
+      ];
+      setupMocks({ sessions });
+      render(<ProjectDetailPage />);
+
+      const resumeButton = screen.getByTestId("resume-session-session-dismiss-success");
+      fireEvent.click(resumeButton);
+
+      // Wait for success message to appear
+      const successMessage = await screen.findByText("Session opened in terminal");
+      expect(successMessage).toBeInTheDocument();
+
+      // Find and click the dismiss button
+      const dismissButton = screen.getByRole("button", { name: /dismiss/i });
+      fireEvent.click(dismissButton);
+
+      // Success message should be gone
+      expect(screen.queryByText("Session opened in terminal")).not.toBeInTheDocument();
+    });
+
+    it("does not call resume when window.electron is not available", () => {
+      // Remove window.electron
+      delete (window as unknown as { electron?: unknown }).electron;
+
+      const sessions = [createMockSession({ id: "session-no-electron", summary: "Test session" })];
+      setupMocks({ sessions });
+      render(<ProjectDetailPage />);
+
+      const resumeButton = screen.getByTestId("resume-session-session-no-electron");
+      fireEvent.click(resumeButton);
+
+      // mockResume should not be called since window.electron doesn't exist
+      expect(mockResume).not.toHaveBeenCalled();
+    });
+
+    it("clears previous error when starting a new resume", async () => {
+      mockResume
+        .mockResolvedValueOnce({
+          success: false,
+          error: "First error",
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          message: "Second attempt succeeded",
+        });
+
+      const sessions = [
+        createMockSession({ id: "session-clear-1", summary: "Session 1" }),
+        createMockSession({ id: "session-clear-2", summary: "Session 2" }),
+      ];
+      setupMocks({ sessions });
+      render(<ProjectDetailPage />);
+
+      // Click first session - should show error
+      const resumeButton1 = screen.getByTestId("resume-session-session-clear-1");
+      fireEvent.click(resumeButton1);
+
+      // Wait for error message
+      await screen.findByText("First error");
+
+      // Click second session - error should clear and show success
+      const resumeButton2 = screen.getByTestId("resume-session-session-clear-2");
+      fireEvent.click(resumeButton2);
+
+      // Wait for success message
+      await screen.findByText("Second attempt succeeded");
+
+      // Previous error should be gone
+      expect(screen.queryByText("First error")).not.toBeInTheDocument();
+    });
+
+    it("auto-dismisses success message after timeout", async () => {
+      jest.useFakeTimers();
+
+      mockResume.mockResolvedValue({
+        success: true,
+        message: "Session resumed successfully",
+      });
+
+      const sessions = [createMockSession({ id: "session-auto-dismiss", summary: "Test session" })];
+      setupMocks({ sessions });
+      render(<ProjectDetailPage />);
+
+      const resumeButton = screen.getByTestId("resume-session-session-auto-dismiss");
+
+      // Click must be wrapped in act since it triggers async state updates
+      await act(async () => {
+        fireEvent.click(resumeButton);
+        // Let promises resolve
+        await Promise.resolve();
+      });
+
+      // Verify message is shown
+      expect(screen.getByText("Session resumed successfully")).toBeInTheDocument();
+
+      // Fast-forward 8 seconds (the auto-dismiss timeout) - wrap in act to handle state updates
+      await act(async () => {
+        jest.advanceTimersByTime(8000);
+      });
+
+      // Success message should be auto-dismissed
+      expect(screen.queryByText("Session resumed successfully")).not.toBeInTheDocument();
+
+      jest.useRealTimers();
     });
   });
 });

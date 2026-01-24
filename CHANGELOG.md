@@ -28,10 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Boundary detection (disable at first/last position)
   - Sort order swap via database updates
 
-- **Resume Session Work Item**: New work item `feature_resume_session_in_default_ide`
-  - Spec for launching Claude Code from Clocked to resume sessions
-  - IPC channel design for terminal execution
-  - macOS AppleScript implementation approach
+- **Resume Session in IDE**: Click any session to resume it in your preferred IDE
+  - Settings page IDE preference with detection of installed IDEs
+  - Support for 11 IDEs: Terminal, iTerm2, VS Code, Cursor, Warp, Windsurf, VSCodium, Zed, Void, Positron, Antigravity
+  - macOS AppleScript automation for opening projects and typing resume commands
+  - Loading states and error handling with user-friendly messages
+  - Sessions sorted by most recent first in project detail view
 
 - **Comprehensive Test Suite**: 422 new tests bringing total to 1,456
   - useProjectsData hook: 29 tests for sorting, filtering, grouping

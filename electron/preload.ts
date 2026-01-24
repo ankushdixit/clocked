@@ -32,11 +32,16 @@ const ALLOWED_CHANNELS = [
   "sessions:getByProject",
   "sessions:getByDateRange",
   "sessions:getCount",
+  "sessions:resume",
   // Data management channels
   "data:sync",
   "data:status",
   // Analytics channels
   "analytics:getMonthlySummary",
+  // Settings channels
+  "settings:get",
+  "settings:set",
+  "settings:getAvailableIdes",
 ];
 
 contextBridge.exposeInMainWorld("electron", {
@@ -100,6 +105,8 @@ contextBridge.exposeInMainWorld("electron", {
     getByDateRange: (startDate: string, endDate: string): Promise<unknown> =>
       ipcRenderer.invoke("sessions:getByDateRange", { startDate, endDate }),
     getCount: (): Promise<unknown> => ipcRenderer.invoke("sessions:getCount"),
+    resume: (sessionId: string, projectPath: string): Promise<unknown> =>
+      ipcRenderer.invoke("sessions:resume", { sessionId, projectPath }),
   },
 
   // Data management API
@@ -112,6 +119,14 @@ contextBridge.exposeInMainWorld("electron", {
   analytics: {
     getMonthlySummary: (month: string): Promise<unknown> =>
       ipcRenderer.invoke("analytics:getMonthlySummary", { month }),
+  },
+
+  // Settings API
+  settings: {
+    get: (key?: string): Promise<unknown> => ipcRenderer.invoke("settings:get", { key }),
+    set: (key: string, value: unknown): Promise<unknown> =>
+      ipcRenderer.invoke("settings:set", { key, value }),
+    getAvailableIdes: (): Promise<unknown> => ipcRenderer.invoke("settings:getAvailableIdes"),
   },
 
   // Generic invoke for custom channels (with validation)

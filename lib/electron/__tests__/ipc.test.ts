@@ -36,6 +36,7 @@ const mockElectron = {
     getByProject: jest.fn(),
     getByDateRange: jest.fn(),
     getCount: jest.fn(),
+    resume: jest.fn(),
   },
   data: {
     sync: jest.fn(),
@@ -43,6 +44,11 @@ const mockElectron = {
   },
   analytics: {
     getMonthlySummary: jest.fn(),
+  },
+  settings: {
+    get: jest.fn(),
+    set: jest.fn(),
+    getAvailableIdes: jest.fn(),
   },
 };
 
