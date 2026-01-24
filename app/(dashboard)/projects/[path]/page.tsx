@@ -14,7 +14,7 @@
  * - Click a session to resume it in your preferred IDE
  */
 
-import { useMemo, useCallback, useState } from "react";
+import { useMemo, useCallback, useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useOne, useList, useUpdate, useInvalidate } from "@refinedev/core";
 import {
@@ -35,7 +35,7 @@ import { CostAnalysisCard } from "@/components/projects/CostAnalysisCard";
 import { MergedProjectsCard } from "@/components/projects/MergedProjectsCard";
 import { SessionsList } from "@/components/projects/SessionsList";
 import { formatDuration } from "@/lib/formatters/time";
-import type { Project, Session } from "@/types/electron";
+import type { Project, Session, TimeSplit, TimeSplitResponse } from "@/types/electron";
 
 /** Calculate total session time from sessions array */
 function calculateTotalSessionTime(sessions: Session[]): number {
@@ -69,14 +69,9 @@ function NotFoundState({ onBack }: { onBack: () => void }) {
   );
 }
 
-// Mock data for design preview (remove when real data is available)
+// Mock data for design preview (costs and stats - to be replaced with real data in future stories)
 const MOCK_DATA = {
-  // Time breakdown
-  rawSessionTime: 76 * 60 * 60 * 1000, // 76 hours raw session time
-  filteredSessionTime: 10224000, // ~2h 50m active time after filtering
-  humanTime: 6550000, // ~1h 49m human time
-  claudeTime: 3674000, // ~1h 1m claude time
-  // Other metrics
+  // Other metrics (to be implemented in future stories)
   toolCalls: 1245,
   costs: {
     input: 156.4,
@@ -95,6 +90,64 @@ const MOCK_DATA = {
   costTrend: [50, 120, 180, 250, 320, 380, 412],
   messageTrend: [45, 52, 48, 65, 58, 72, 68],
 };
+
+/** Default empty time split for loading state */
+const EMPTY_TIME_SPLIT: TimeSplit = {
+  activeTime: 0,
+  humanTime: 0,
+  claudeTime: 0,
+  idleTime: 0,
+  humanPercentage: 0,
+  claudePercentage: 0,
+  messagePairCount: 0,
+  gapCount: 0,
+};
+
+/** Hook to fetch time split data for a project */
+function useTimeSplit(projectPath: string | null) {
+  const [timeSplit, setTimeSplit] = useState<TimeSplit>(EMPTY_TIME_SPLIT);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!projectPath) {
+      setTimeSplit(EMPTY_TIME_SPLIT);
+      return;
+    }
+
+    // Check if running in Electron
+    if (typeof window === "undefined" || !window.electron?.sessions?.getTimeSplit) {
+      return;
+    }
+
+    const fetchTimeSplit = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = (await window.electron.sessions.getTimeSplit(
+          projectPath
+        )) as TimeSplitResponse;
+
+        if (response.error) {
+          setError(response.error);
+          setTimeSplit(EMPTY_TIME_SPLIT);
+        } else if (response.timeSplit) {
+          setTimeSplit(response.timeSplit);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to fetch time split");
+        setTimeSplit(EMPTY_TIME_SPLIT);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTimeSplit();
+  }, [projectPath]);
+
+  return { timeSplit, isLoading, error };
+}
 
 /** Hero metrics row - matches dashboard pattern */
 function HeroMetricsRow({ sessions }: { sessions: Session[] }) {
@@ -149,7 +202,17 @@ function HeroMetricsRow({ sessions }: { sessions: Session[] }) {
 }
 
 /** Project metrics cards grid */
-function ProjectMetrics({ project, sessions }: { project: Project; sessions: Session[] }) {
+function ProjectMetrics({
+  project,
+  sessions,
+  timeSplit,
+  isTimeSplitLoading,
+}: {
+  project: Project;
+  sessions: Session[];
+  timeSplit: TimeSplit;
+  isTimeSplitLoading: boolean;
+}) {
   const totalSessionTime = calculateTotalSessionTime(sessions);
   const avgSessionDuration = sessions.length > 0 ? totalSessionTime / sessions.length : 0;
 
@@ -165,10 +228,11 @@ function ProjectMetrics({ project, sessions }: { project: Project; sessions: Ses
           <TimeBreakdownCard
             clockStart={project.firstActivity}
             clockEnd={project.lastActivity}
-            rawSessionTime={MOCK_DATA.rawSessionTime}
-            filteredSessionTime={MOCK_DATA.filteredSessionTime}
-            humanTime={MOCK_DATA.humanTime}
-            aiTime={MOCK_DATA.claudeTime}
+            rawSessionTime={totalSessionTime}
+            filteredSessionTime={timeSplit.activeTime}
+            humanTime={timeSplit.humanTime}
+            aiTime={timeSplit.claudeTime}
+            isLoading={isTimeSplitLoading}
           />
         </div>
         <CostAnalysisCard
@@ -335,6 +399,8 @@ function CurrentDesign({
   project,
   mergedProjects,
   allSessions,
+  timeSplit,
+  isTimeSplitLoading,
   onUnmerge,
   onResumeSession,
   loadingSessionId,
@@ -342,6 +408,8 @@ function CurrentDesign({
   project: Project;
   mergedProjects: Project[];
   allSessions: Session[];
+  timeSplit: TimeSplit;
+  isTimeSplitLoading: boolean;
   onUnmerge: (path: string) => void;
   onResumeSession: (sessionId: string, projectPath: string) => void;
   loadingSessionId: string | null;
@@ -351,7 +419,12 @@ function CurrentDesign({
 
   return (
     <>
-      <ProjectMetrics project={project} sessions={allSessions} />
+      <ProjectMetrics
+        project={project}
+        sessions={allSessions}
+        timeSplit={timeSplit}
+        isTimeSplitLoading={isTimeSplitLoading}
+      />
       {hasRealMergedProjects && (
         <MergedProjectsCard mergedProjects={mergedProjects} onUnmerge={onUnmerge} />
       )}
@@ -374,6 +447,9 @@ export default function ProjectDetailPage() {
   const invalidate = useInvalidate();
 
   const { project, mergedProjects, allSessions, isLoading } = useProjectDetailData(projectPath);
+
+  // Fetch time split data for the project
+  const { timeSplit, isLoading: isTimeSplitLoading } = useTimeSplit(projectPath);
 
   // State for session resume
   const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null);
@@ -453,6 +529,8 @@ export default function ProjectDetailPage() {
         project={project}
         mergedProjects={mergedProjects}
         allSessions={allSessions}
+        timeSplit={timeSplit}
+        isTimeSplitLoading={isTimeSplitLoading}
         onUnmerge={handleUnmerge}
         onResumeSession={handleResumeSession}
         loadingSessionId={loadingSessionId}

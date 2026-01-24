@@ -99,4 +99,30 @@ describe("TimeBreakdownCard", () => {
       expect(screen.getByText(/Claude 50%/)).toBeInTheDocument();
     });
   });
+
+  describe("Loading State", () => {
+    it("shows loading skeleton when isLoading is true", () => {
+      render(<TimeBreakdownCard {...defaultProps} isLoading={true} />);
+      // Clock Time and Session Time should still be visible
+      expect(screen.getByText("Clock Time")).toBeInTheDocument();
+      expect(screen.getByText("Session Time")).toBeInTheDocument();
+      // Active Time should not be visible
+      expect(screen.queryByText("Active Time")).not.toBeInTheDocument();
+      // Loading message should be shown
+      expect(screen.getByText("Calculating time split...")).toBeInTheDocument();
+    });
+
+    it("shows full content when isLoading is false", () => {
+      render(<TimeBreakdownCard {...defaultProps} isLoading={false} />);
+      expect(screen.getByText("Active Time")).toBeInTheDocument();
+      expect(screen.getByText(/Human \d+%/)).toBeInTheDocument();
+      expect(screen.queryByText("Calculating time split...")).not.toBeInTheDocument();
+    });
+
+    it("defaults to not loading when isLoading is not provided", () => {
+      render(<TimeBreakdownCard {...defaultProps} />);
+      expect(screen.getByText("Active Time")).toBeInTheDocument();
+      expect(screen.queryByText("Calculating time split...")).not.toBeInTheDocument();
+    });
+  });
 });

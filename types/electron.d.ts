@@ -41,6 +41,29 @@ export interface Session {
 }
 
 /**
+ * Time split data model
+ * Represents the breakdown of active time between human and Claude
+ */
+export interface TimeSplit {
+  /** Total active time in milliseconds (humanTime + claudeTime) */
+  activeTime: number;
+  /** Human thinking/typing time in milliseconds */
+  humanTime: number;
+  /** Claude processing time in milliseconds */
+  claudeTime: number;
+  /** Total idle time in milliseconds (gaps > threshold) */
+  idleTime: number;
+  /** Human time as percentage of active time */
+  humanPercentage: number;
+  /** Claude time as percentage of active time */
+  claudePercentage: number;
+  /** Number of message pairs analyzed */
+  messagePairCount: number;
+  /** Number of gaps detected (excluded from active time) */
+  gapCount: number;
+}
+
+/**
  * Response types for IPC calls
  */
 export interface ProjectsResponse {
@@ -56,6 +79,11 @@ export interface ProjectResponse {
 export interface SessionsResponse {
   sessions?: Session[];
   total?: number;
+  error?: string;
+}
+
+export interface TimeSplitResponse {
+  timeSplit?: TimeSplit;
   error?: string;
 }
 
@@ -244,6 +272,7 @@ declare global {
         ) => Promise<SessionsResponse>;
         getByDateRange: (_startDate: string, _endDate: string) => Promise<SessionsResponse>;
         getCount: () => Promise<CountResponse>;
+        getTimeSplit: (_projectPath: string) => Promise<TimeSplitResponse>;
         resume: (_sessionId: string, _projectPath: string) => Promise<ResumeSessionResponse>;
       };
 

@@ -32,6 +32,7 @@ const ALLOWED_CHANNELS = [
   "sessions:getByProject",
   "sessions:getByDateRange",
   "sessions:getCount",
+  "sessions:getTimeSplit",
   "sessions:resume",
   // Data management channels
   "data:sync",
@@ -105,6 +106,8 @@ contextBridge.exposeInMainWorld("electron", {
     getByDateRange: (startDate: string, endDate: string): Promise<unknown> =>
       ipcRenderer.invoke("sessions:getByDateRange", { startDate, endDate }),
     getCount: (): Promise<unknown> => ipcRenderer.invoke("sessions:getCount"),
+    getTimeSplit: (projectPath: string): Promise<unknown> =>
+      ipcRenderer.invoke("sessions:getTimeSplit", { projectPath }),
     resume: (sessionId: string, projectPath: string): Promise<unknown> =>
       ipcRenderer.invoke("sessions:resume", { sessionId, projectPath }),
   },

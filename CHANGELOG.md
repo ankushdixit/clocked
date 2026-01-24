@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **JSONL Message Parsing & Time Calculations**: Real human vs Claude time tracking
+  - JSONL parser (`electron/services/parsers/jsonl-parser.ts`) for streaming conversation files
+  - Time calculator (`electron/services/calculators/time-calculator.ts`) for human/Claude split
+  - IPC handler `sessions:getTimeSplit` for fetching time data per project
+  - Idle gap detection (30-minute threshold) to exclude inactive periods
+  - Loading state in TimeBreakdownCard while calculations run
+  - 32 new tests for parser and calculator modules
+
 - **Project Detail Page**: Complete redesign with dashboard-style layout
   - Hero metrics row: Sessions, Session Time, API Cost, Messages with sparklines
   - Time Breakdown Card: Cascading funnel visualization (Clock → Session → Active → Human/AI)
