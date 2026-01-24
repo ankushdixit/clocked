@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Project Detail Page**: Complete redesign with dashboard-style layout
+  - Hero metrics row: Sessions, Session Time, API Cost, Messages with sparklines
+  - Time Breakdown Card: Cascading funnel visualization (Clock → Session → Active → Human/AI)
+  - Cost Analysis Card: Input, Output, Cache Write, Cache Read costs with savings
+  - Quick Stats Card: Tool calls, busiest day, longest session, average duration
+  - Merged Projects Card: Grid display of merged projects with unmerge action
+  - Recent Sessions: 2-column grid of session cards with date, summary, duration
+  - Responsive layout with proper card height alignment
+
+- **Dashboard Real Data Support**: Dashboard cards now display real project data
+  - TimeDistributionCard, TopProjectsCard, HourlyDistributionCard accept projects prop
+  - Interactive tooltips on pie chart segments
+  - Fallback to mock data when no projects available
+
+- **Group Reordering**: Move groups up/down in the projects list
+  - Move up/down buttons on group headers
+  - Boundary detection (disable at first/last position)
+  - Sort order swap via database updates
+
+- **Resume Session Work Item**: New work item `feature_resume_session_in_default_ide`
+  - Spec for launching Claude Code from Clocked to resume sessions
+  - IPC channel design for terminal execution
+  - macOS AppleScript implementation approach
+
+- **Comprehensive Test Suite**: 422 new tests bringing total to 1,456
+  - useProjectsData hook: 29 tests for sorting, filtering, grouping
+  - useProjectsListState hook: 43 tests for select mode, merge workflow
+  - ProjectGroupSection: 25 tests for collapse, reorder, selection
+  - Dashboard cards: 135 tests for metrics, charts, edge cases
+  - Core infrastructure: 127 tests for IPC, Refine wrapper, dashboard page
+
 ### Changed
 
 - **Projects List View Redesign**: Complete UI overhaul with compact inline design

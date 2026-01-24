@@ -27,6 +27,10 @@ export interface ProjectGroupSectionProps {
   onSetGroup: (project: Project, groupId: string | null) => void;
   onUnmerge: (path: string) => void;
   onToggleSelection: (path: string) => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
 export function ProjectGroupSection({
@@ -45,6 +49,10 @@ export function ProjectGroupSection({
   onSetGroup,
   onUnmerge,
   onToggleSelection,
+  canMoveUp,
+  canMoveDown,
+  onMoveUp,
+  onMoveDown,
 }: ProjectGroupSectionProps) {
   // Don't show header for ungrouped when there are no other groups
   if (!showHeader && !group) {
@@ -76,6 +84,10 @@ export function ProjectGroupSection({
         projectCount={projects.length}
         isCollapsed={isCollapsed}
         onToggleCollapse={onToggleCollapse}
+        canMoveUp={canMoveUp}
+        canMoveDown={canMoveDown}
+        onMoveUp={onMoveUp}
+        onMoveDown={onMoveDown}
       />
 
       {!isCollapsed && (

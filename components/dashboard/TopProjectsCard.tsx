@@ -1,13 +1,53 @@
 "use client";
 
+import Link from "next/link";
 import { Zap, ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDuration } from "@/lib/formatters/time";
 import { formatCost } from "@/lib/calculators/usage-calculator";
 import { generateEnhancedProjects } from "@/lib/mockData";
+import type { Project } from "@/types/electron";
 
-export function TopProjectsCard() {
-  const projects = generateEnhancedProjects();
+// Project colors for visual distinction
+const PROJECT_COLORS = [
+  "#3b82f6", // blue
+  "#10b981", // emerald
+  "#f59e0b", // amber
+  "#ec4899", // pink
+  "#8b5cf6", // violet
+  "#06b6d4", // cyan
+  "#f97316", // orange
+  "#84cc16", // lime
+];
+
+interface TopProjectsCardProps {
+  projects?: Project[];
+}
+
+export function TopProjectsCard({ projects: realProjects }: TopProjectsCardProps) {
+  // Use real projects if available, otherwise fall back to mock data
+  const mockProjects = generateEnhancedProjects();
+
+  // Transform real projects to match the display format
+  // Estimate cost: ~$0.50 per hour of session time (rough approximation)
+  const estimateCost = (totalTimeMs: number) => (totalTimeMs / (1000 * 60 * 60)) * 0.5;
+
+  const projects =
+    realProjects && realProjects.length > 0
+      ? realProjects
+          .filter((p) => !p.mergedInto) // Exclude merged projects
+          .sort((a, b) => b.totalTime - a.totalTime) // Sort by total time
+          .slice(0, 5)
+          .map((p, index) => ({
+            name: p.name,
+            path: p.path,
+            sessionCount: p.sessionCount,
+            totalTime: p.totalTime,
+            estimatedCost: estimateCost(p.totalTime),
+            weeklyTrend: [3, 5, 2, 7, 4, 6, 3], // Mock weekly trend for now
+            color: PROJECT_COLORS[index % PROJECT_COLORS.length],
+          }))
+      : mockProjects;
 
   return (
     <Card className="overflow-hidden">
@@ -17,9 +57,12 @@ export function TopProjectsCard() {
             <Zap className="w-4 h-4 flex-shrink-0" />
             <span className="truncate">Top Projects</span>
           </CardTitle>
-          <button className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 flex-shrink-0">
+          <Link
+            href="/projects"
+            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 flex-shrink-0 cursor-pointer"
+          >
             View all <ArrowUpRight className="w-3 h-3" />
-          </button>
+          </Link>
         </div>
       </CardHeader>
       <CardContent className="space-y-3 overflow-hidden">
@@ -27,8 +70,9 @@ export function TopProjectsCard() {
           const maxWeekly = Math.max(...project.weeklyTrend);
 
           return (
-            <div
+            <Link
               key={project.path}
+              href={`/projects/${encodeURIComponent(project.path)}`}
               className="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group"
             >
               {/* Rank */}
@@ -70,7 +114,7 @@ export function TopProjectsCard() {
               <p className="font-medium text-sm w-16 text-right flex-shrink-0">
                 {formatCost(project.estimatedCost)}
               </p>
-            </div>
+            </Link>
           );
         })}
       </CardContent>
