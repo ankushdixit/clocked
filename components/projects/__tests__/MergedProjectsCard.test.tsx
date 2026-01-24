@@ -68,7 +68,7 @@ describe("MergedProjectsCard", () => {
       render(<MergedProjectsCard mergedProjects={projects} />);
       expect(screen.getByText("10 sessions")).toBeInTheDocument();
       expect(screen.getByText("2h 0m")).toBeInTheDocument();
-      expect(screen.getByText("500 messages")).toBeInTheDocument();
+      expect(screen.getByText("500 msgs")).toBeInTheDocument();
     });
   });
 

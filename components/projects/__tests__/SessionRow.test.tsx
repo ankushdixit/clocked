@@ -50,35 +50,33 @@ describe("SessionRow", () => {
       expect(screen.getByText("No description")).toBeInTheDocument();
     });
 
-    it("truncates text longer than 80 characters with ellipsis", () => {
+    it("renders full text (CSS handles visual truncation)", () => {
       const longText =
-        "This is a very long summary that exceeds eighty characters and should be truncated with an ellipsis at the end";
+        "This is a very long summary that exceeds eighty characters and should be visually truncated by CSS line-clamp";
       const session = createMockSession({ summary: longText });
 
       render(<SessionRow session={session} />);
 
-      // Text should be truncated to 80 chars + "..."
-      const truncated = longText.substring(0, 80) + "...";
-      expect(screen.getByText(truncated)).toBeInTheDocument();
+      // Full text is rendered, CSS line-clamp-2 handles visual truncation
+      expect(screen.getByText(longText)).toBeInTheDocument();
     });
 
-    it("does not add ellipsis for text exactly 80 characters", () => {
-      const exactText = "A".repeat(80);
-      const session = createMockSession({ summary: exactText });
+    it("applies line-clamp-2 class for text truncation", () => {
+      const session = createMockSession({ summary: "Test summary" });
 
-      render(<SessionRow session={session} />);
+      const { container } = render(<SessionRow session={session} />);
 
-      expect(screen.getByText(exactText)).toBeInTheDocument();
+      const textElement = container.querySelector(".line-clamp-2");
+      expect(textElement).toBeInTheDocument();
     });
 
-    it("does not add ellipsis for text shorter than 80 characters", () => {
+    it("renders short text without issues", () => {
       const shortText = "Short summary";
       const session = createMockSession({ summary: shortText });
 
       render(<SessionRow session={session} />);
 
       expect(screen.getByText(shortText)).toBeInTheDocument();
-      expect(screen.queryByText(shortText + "...")).not.toBeInTheDocument();
     });
   });
 
@@ -90,7 +88,7 @@ describe("SessionRow", () => {
 
       render(<SessionRow session={session} />);
 
-      expect(screen.getByText(/Today, 10:30 AM/i)).toBeInTheDocument();
+      expect(screen.getByText(/Today at 10:30 AM/i)).toBeInTheDocument();
     });
 
     it("displays 'Yesterday' for sessions created yesterday", () => {
@@ -101,7 +99,7 @@ describe("SessionRow", () => {
 
       render(<SessionRow session={session} />);
 
-      expect(screen.getByText(/Yesterday, 2:45 PM/i)).toBeInTheDocument();
+      expect(screen.getByText(/Yesterday at 2:45 PM/i)).toBeInTheDocument();
     });
 
     it("displays month and day for older sessions", () => {
@@ -109,8 +107,8 @@ describe("SessionRow", () => {
 
       render(<SessionRow session={session} />);
 
-      // Should show "Jan 15, 9:30 AM" (time may vary by timezone)
-      expect(screen.getByText(/Jan 15/)).toBeInTheDocument();
+      // Should show "Jan 15 at 9:30 AM" (time may vary by timezone)
+      expect(screen.getByText(/Jan 15 at/)).toBeInTheDocument();
     });
   });
 
@@ -252,7 +250,7 @@ describe("SessionRow", () => {
 
       const row = screen.getByRole("button");
       expect(row).toHaveClass("border");
-      expect(row).toHaveClass("rounded-lg");
+      expect(row).toHaveClass("rounded-xl");
     });
 
     it("has transition for hover effects", () => {
@@ -261,7 +259,7 @@ describe("SessionRow", () => {
       render(<SessionRow session={session} />);
 
       const row = screen.getByRole("button");
-      expect(row).toHaveClass("transition-colors");
+      expect(row).toHaveClass("transition-all");
     });
 
     it("has tabIndex for keyboard accessibility", () => {
@@ -274,15 +272,15 @@ describe("SessionRow", () => {
     });
   });
 
-  describe("Chevron icon", () => {
-    it("renders chevron right icon", () => {
+  describe("Icons", () => {
+    it("renders icons for duration and messages", () => {
       const session = createMockSession();
 
       const { container } = render(<SessionRow session={session} />);
 
-      // ChevronRight should be present
-      const chevron = container.querySelector("svg");
-      expect(chevron).toBeInTheDocument();
+      // Should have multiple SVG icons (Clock, MessageSquare, ArrowUpRight)
+      const icons = container.querySelectorAll("svg");
+      expect(icons.length).toBeGreaterThanOrEqual(2);
     });
   });
 });

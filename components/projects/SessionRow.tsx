@@ -3,14 +3,15 @@
 /**
  * Session Row Component
  *
- * Displays a single session with:
+ * Displays a single session as a card with:
  * - Date/time of the session
- * - Summary or first prompt (truncated to 80 characters)
- * - Duration and message count
+ * - Summary or first prompt
+ * - Duration and message count with icons
+ * - Hover effects and clickable
  */
 
 import { format, isToday, isYesterday } from "date-fns";
-import { ChevronRight } from "lucide-react";
+import { ArrowUpRight, Clock, MessageSquare } from "lucide-react";
 import { formatDuration } from "@/lib/formatters/time";
 import type { Session } from "@/types/electron";
 
@@ -24,27 +25,18 @@ function formatSessionDate(dateStr: string): string {
   const date = new Date(dateStr);
 
   if (isToday(date)) {
-    return `Today, ${format(date, "h:mm a")}`;
+    return `Today at ${format(date, "h:mm a")}`;
   }
 
   if (isYesterday(date)) {
-    return `Yesterday, ${format(date, "h:mm a")}`;
+    return `Yesterday at ${format(date, "h:mm a")}`;
   }
 
-  return format(date, "MMM d, h:mm a");
-}
-
-/** Truncate text to specified length with ellipsis */
-function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) {
-    return text;
-  }
-  return text.substring(0, maxLength) + "...";
+  return `${format(date, "MMM d")} at ${format(date, "h:mm a")}`;
 }
 
 export function SessionRow({ session, onClick }: SessionRowProps) {
   const displayText = session.summary || session.firstPrompt || "No description";
-  const truncated = truncateText(displayText, 80);
 
   const handleClick = () => {
     if (onClick) {
@@ -56,7 +48,7 @@ export function SessionRow({ session, onClick }: SessionRowProps) {
   return (
     <div
       onClick={handleClick}
-      className="group flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
+      className="group p-4 rounded-xl border bg-card hover:shadow-md cursor-pointer transition-all"
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -64,17 +56,26 @@ export function SessionRow({ session, onClick }: SessionRowProps) {
           handleClick();
         }
       }}
+      data-testid={`session-${session.id}`}
     >
-      <div className="flex-1 min-w-0 mr-4">
-        <p className="text-xs text-muted-foreground mb-1">{formatSessionDate(session.created)}</p>
-        <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
-          {truncated}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-muted-foreground">{formatSessionDate(session.created)}</p>
+          <p className="font-medium text-sm mt-1 line-clamp-2 group-hover:text-primary transition-colors">
+            {displayText}
+          </p>
+        </div>
+        <ArrowUpRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
       </div>
-      <div className="flex items-center gap-4 text-sm text-muted-foreground flex-shrink-0">
-        <span className="tabular-nums">{formatDuration(session.duration)}</span>
-        <span className="tabular-nums">{session.messageCount} messages</span>
-        <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+      <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <Clock className="w-3 h-3" />
+          {formatDuration(session.duration)}
+        </span>
+        <span className="flex items-center gap-1">
+          <MessageSquare className="w-3 h-3" />
+          {session.messageCount} messages
+        </span>
       </div>
     </div>
   );

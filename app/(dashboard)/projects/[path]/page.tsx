@@ -16,16 +16,24 @@
 import { useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useOne, useList, useUpdate, useInvalidate } from "@refinedev/core";
-import { ArrowLeft, Loader2, GitMerge } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  GitMerge,
+  Activity,
+  Clock,
+  DollarSign,
+  MessageSquare,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { TimeLayersCard } from "@/components/projects/TimeLayersCard";
-import { ActivityMetricsCard } from "@/components/projects/ActivityMetricsCard";
-import { HumanVsAICard } from "@/components/projects/HumanVsAICard";
+import { HeroMetricCard } from "@/components/dashboard/HeroMetricCard";
+import { TimeBreakdownCard } from "@/components/projects/TimeBreakdownCard";
+import { ProjectQuickStatsCard } from "@/components/projects/ProjectQuickStatsCard";
 import { CostAnalysisCard } from "@/components/projects/CostAnalysisCard";
-import { ToolUsageCard } from "@/components/projects/ToolUsageCard";
 import { MergedProjectsCard } from "@/components/projects/MergedProjectsCard";
 import { SessionsList } from "@/components/projects/SessionsList";
+import { formatDuration } from "@/lib/formatters/time";
 import type { Project, Session } from "@/types/electron";
 
 /** Calculate total session time from sessions array */
@@ -62,50 +70,159 @@ function NotFoundState({ onBack }: { onBack: () => void }) {
 
 // Mock data for design preview (remove when real data is available)
 const MOCK_DATA = {
-  activeTime: 10224000,
-  humanTime: 6550000,
-  claudeTime: 3674000,
+  // Time breakdown
+  rawSessionTime: 76 * 60 * 60 * 1000, // 76 hours raw session time
+  filteredSessionTime: 10224000, // ~2h 50m active time after filtering
+  humanTime: 6550000, // ~1h 49m human time
+  claudeTime: 3674000, // ~1h 1m claude time
+  // Other metrics
   toolCalls: 1245,
-  costs: { input: 156.4, output: 234.8, cacheWrite: 12.3, cacheRead: 9.0, savings: 89.2 },
-  toolUsage: [
-    { name: "Bash", count: 3421 },
-    { name: "Edit", count: 2156 },
-    { name: "Read", count: 1892 },
-    { name: "Write", count: 1456 },
-    { name: "Glob", count: 1102 },
-    { name: "Grep", count: 1045 },
-    { name: "Task", count: 784 },
-  ],
+  costs: {
+    input: 156.4,
+    output: 234.8,
+    cacheWrite: 12.3,
+    cacheRead: 9.0,
+    total: 412.5,
+    savings: 89.2,
+  },
+  // Quick stats
+  busiestDay: { date: "Jan 15", sessions: 8 },
+  longestSession: { duration: 2 * 60 * 60 * 1000, date: "Jan 12" }, // 2 hours
+  // Mock sparkline data for trends
+  sessionTrend: [12, 18, 15, 22, 19, 25, 20],
+  timeTrend: [8, 12, 10, 15, 14, 18, 16],
+  costTrend: [50, 120, 180, 250, 320, 380, 412],
+  messageTrend: [45, 52, 48, 65, 58, 72, 68],
+  // Mock merged projects for testing grid layout (set to empty array to hide)
+  mergedProjects: [
+    {
+      path: "/Users/dev/projects/feature-auth",
+      name: "feature-auth",
+      sessionCount: 12,
+      totalTime: 8 * 60 * 60 * 1000,
+      messageCount: 245,
+      firstActivity: "2024-01-10T10:00:00Z",
+      lastActivity: "2024-01-15T18:00:00Z",
+      mergedInto: null,
+    },
+    {
+      path: "/Users/dev/projects/bugfix-login",
+      name: "bugfix-login",
+      sessionCount: 5,
+      totalTime: 2 * 60 * 60 * 1000,
+      messageCount: 89,
+      firstActivity: "2024-01-12T09:00:00Z",
+      lastActivity: "2024-01-12T16:00:00Z",
+      mergedInto: null,
+    },
+    {
+      path: "/Users/dev/projects/refactor-api",
+      name: "refactor-api",
+      sessionCount: 8,
+      totalTime: 5 * 60 * 60 * 1000,
+      messageCount: 156,
+      firstActivity: "2024-01-08T11:00:00Z",
+      lastActivity: "2024-01-14T14:00:00Z",
+      mergedInto: null,
+    },
+    {
+      path: "/Users/dev/projects/docs-update",
+      name: "docs-update",
+      sessionCount: 3,
+      totalTime: 1 * 60 * 60 * 1000,
+      messageCount: 42,
+      firstActivity: "2024-01-13T10:00:00Z",
+      lastActivity: "2024-01-13T12:00:00Z",
+      mergedInto: null,
+    },
+    {
+      path: "/Users/dev/projects/test-coverage",
+      name: "test-coverage",
+      sessionCount: 6,
+      totalTime: 3 * 60 * 60 * 1000,
+      messageCount: 98,
+      firstActivity: "2024-01-11T08:00:00Z",
+      lastActivity: "2024-01-16T17:00:00Z",
+      mergedInto: null,
+    },
+  ] as Project[],
 };
+
+/** Hero metrics row - matches dashboard pattern */
+function HeroMetricsRow({ sessions }: { sessions: Session[] }) {
+  const totalSessionTime = calculateTotalSessionTime(sessions);
+  const totalMessages = sessions.reduce((sum: number, s: Session) => sum + s.messageCount, 0);
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <HeroMetricCard
+        icon={Activity}
+        title="Sessions"
+        value={sessions.length.toString()}
+        subtitle="total sessions"
+        trend="up"
+        trendValue="+12% vs lw"
+        sparklineData={MOCK_DATA.sessionTrend}
+        sparklineColor="#10b981"
+      />
+      <HeroMetricCard
+        icon={Clock}
+        title="Session Time"
+        value={formatDuration(totalSessionTime)}
+        subtitle="total duration"
+        trend="up"
+        trendValue="+8% vs lw"
+        sparklineData={MOCK_DATA.timeTrend}
+        sparklineColor="#3b82f6"
+      />
+      <HeroMetricCard
+        icon={DollarSign}
+        title="API Cost"
+        value={`$${MOCK_DATA.costs.total.toFixed(2)}`}
+        subtitle="estimated"
+        trend="neutral"
+        trendValue="$17/day"
+        sparklineData={MOCK_DATA.costTrend}
+        sparklineColor="#f59e0b"
+      />
+      <HeroMetricCard
+        icon={MessageSquare}
+        title="Messages"
+        value={totalMessages.toLocaleString()}
+        subtitle="total messages"
+        trend="up"
+        trendValue="+15%"
+        sparklineData={MOCK_DATA.messageTrend}
+        sparklineColor="#10b981"
+        highlight
+      />
+    </div>
+  );
+}
 
 /** Project metrics cards grid */
 function ProjectMetrics({ project, sessions }: { project: Project; sessions: Session[] }) {
   const totalSessionTime = calculateTotalSessionTime(sessions);
-  const totalMessages = sessions.reduce((sum: number, s: Session) => sum + s.messageCount, 0);
   const avgSessionDuration = sessions.length > 0 ? totalSessionTime / sessions.length : 0;
-  const avgMessagesPerSession = sessions.length > 0 ? totalMessages / sessions.length : 0;
 
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <TimeLayersCard
-          wallClockStart={project.firstActivity}
-          wallClockEnd={project.lastActivity}
-          sessionTime={totalSessionTime}
-          activeTime={MOCK_DATA.activeTime}
-          humanTime={MOCK_DATA.humanTime}
-          claudeTime={MOCK_DATA.claudeTime}
-        />
-        <ActivityMetricsCard
-          sessionCount={sessions.length}
-          messageCount={totalMessages}
-          toolCalls={MOCK_DATA.toolCalls}
-          avgSessionDuration={avgSessionDuration}
-          avgMessagesPerSession={avgMessagesPerSession}
-        />
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <HumanVsAICard humanTime={MOCK_DATA.humanTime} claudeTime={MOCK_DATA.claudeTime} />
+      {/* Row 1: Hero Metrics */}
+      <HeroMetricsRow sessions={sessions} />
+
+      {/* Row 2: Time Breakdown (4), Cost Analysis (3), Quick Stats (3) */}
+      {/* Below 1280px: 1 card on top, 2 cards below. Above 1280px: 3 cards with 4:3:3 ratio */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[minmax(500px,4fr)_3fr_3fr] gap-4">
+        <div className="md:col-span-2 xl:col-span-1">
+          <TimeBreakdownCard
+            clockStart={project.firstActivity}
+            clockEnd={project.lastActivity}
+            rawSessionTime={MOCK_DATA.rawSessionTime}
+            filteredSessionTime={MOCK_DATA.filteredSessionTime}
+            humanTime={MOCK_DATA.humanTime}
+            aiTime={MOCK_DATA.claudeTime}
+          />
+        </div>
         <CostAnalysisCard
           inputCost={MOCK_DATA.costs.input}
           outputCost={MOCK_DATA.costs.output}
@@ -113,8 +230,13 @@ function ProjectMetrics({ project, sessions }: { project: Project; sessions: Ses
           cacheReadCost={MOCK_DATA.costs.cacheRead}
           cacheSavings={MOCK_DATA.costs.savings}
         />
+        <ProjectQuickStatsCard
+          toolCalls={MOCK_DATA.toolCalls}
+          busiestDay={MOCK_DATA.busiestDay}
+          longestSession={MOCK_DATA.longestSession}
+          avgSessionDuration={avgSessionDuration}
+        />
       </div>
-      <ToolUsageCard toolUsage={MOCK_DATA.toolUsage} />
     </>
   );
 }
@@ -130,20 +252,28 @@ function PageHeader({
   onBack: () => void;
 }) {
   return (
-    <header>
-      <div className="flex items-center gap-3 mb-1">
-        <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to projects">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
-        {mergedCount > 0 && (
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-            <GitMerge className="h-3 w-3" />
-            {mergedCount} merged
-          </span>
-        )}
+    <header className="flex items-start gap-3">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onBack}
+        aria-label="Back to projects"
+        className="flex-shrink-0"
+      >
+        <ArrowLeft className="h-4 w-4" />
+      </Button>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-3 mb-1">
+          <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
+          {mergedCount > 0 && (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+              <GitMerge className="h-3 w-3" />
+              {mergedCount} merged
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground truncate">{project.path}</p>
       </div>
-      <p className="text-xs text-muted-foreground ml-10">{project.path}</p>
     </header>
   );
 }
@@ -221,6 +351,33 @@ function useProjectDetailData(projectPath: string) {
   };
 }
 
+/** Current design content */
+function CurrentDesign({
+  project,
+  mergedProjects,
+  allSessions,
+  onUnmerge,
+}: {
+  project: Project;
+  mergedProjects: Project[];
+  allSessions: Session[];
+  onUnmerge: (path: string) => void;
+}) {
+  // Use mock merged projects for design preview if no real merged projects exist
+  const displayMergedProjects =
+    mergedProjects.length > 0 ? mergedProjects : MOCK_DATA.mergedProjects;
+
+  return (
+    <>
+      <ProjectMetrics project={project} sessions={allSessions} />
+      {displayMergedProjects.length > 0 && (
+        <MergedProjectsCard mergedProjects={displayMergedProjects} onUnmerge={onUnmerge} />
+      )}
+      <SessionsSection sessions={allSessions} />
+    </>
+  );
+}
+
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -249,11 +406,12 @@ export default function ProjectDetailPage() {
   return (
     <div className="space-y-4">
       <PageHeader project={project} mergedCount={mergedProjects.length} onBack={handleBack} />
-      <ProjectMetrics project={project} sessions={allSessions} />
-      {mergedProjects.length > 0 && (
-        <MergedProjectsCard mergedProjects={mergedProjects} onUnmerge={handleUnmerge} />
-      )}
-      <SessionsSection sessions={allSessions} />
+      <CurrentDesign
+        project={project}
+        mergedProjects={mergedProjects}
+        allSessions={allSessions}
+        onUnmerge={handleUnmerge}
+      />
     </div>
   );
 }

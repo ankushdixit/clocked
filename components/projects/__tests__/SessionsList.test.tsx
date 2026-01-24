@@ -77,12 +77,13 @@ describe("SessionsList", () => {
   });
 
   describe("Styling", () => {
-    it("applies space-y-2 for vertical spacing between sessions", () => {
+    it("applies grid layout with gap for sessions", () => {
       const sessions = [createMockSession({ id: "session-1" })];
 
       const { container } = render(<SessionsList sessions={sessions} />);
 
-      expect(container.firstChild).toHaveClass("space-y-2");
+      expect(container.firstChild).toHaveClass("grid");
+      expect(container.firstChild).toHaveClass("gap-3");
     });
   });
 

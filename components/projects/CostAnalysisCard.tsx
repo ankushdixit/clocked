@@ -22,15 +22,6 @@ function formatCurrency(value: number): string {
   return `$${value.toFixed(2)}`;
 }
 
-function CostRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between items-center text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium tabular-nums">{value}</span>
-    </div>
-  );
-}
-
 export function CostAnalysisCard({
   inputCost,
   outputCost,
@@ -53,22 +44,33 @@ export function CostAnalysisCard({
       </CardHeader>
       <CardContent className="flex-1 flex flex-col justify-center">
         {hasData ? (
-          <div className="space-y-2">
-            <CostRow label="Input" value={formatCurrency(inputCost)} />
-            <CostRow label="Output" value={formatCurrency(outputCost)} />
-            <CostRow label="Cache Write" value={formatCurrency(cacheWriteCost)} />
-            <CostRow label="Cache Read" value={formatCurrency(cacheReadCost)} />
-            <div className="border-t pt-2 mt-2">
-              <CostRow label="Total" value={formatCurrency(total)} />
-              {cacheSavings !== null && cacheSavings > 0 && (
-                <div className="flex justify-between items-center text-sm mt-1">
-                  <span className="text-emerald-600">Cache Savings</span>
-                  <span className="font-medium tabular-nums text-emerald-600">
-                    {formatCurrency(cacheSavings)}
-                  </span>
-                </div>
-              )}
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-sm">Input</span>
+              <span className="text-sm font-medium">{formatCurrency(inputCost)}</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-sm">Output</span>
+              <span className="text-sm font-medium">{formatCurrency(outputCost)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm">Cache Write</span>
+              <span className="text-sm font-medium">{formatCurrency(cacheWriteCost)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm">Cache Read</span>
+              <span className="text-sm font-medium">{formatCurrency(cacheReadCost)}</span>
+            </div>
+            <div className="border-t pt-3 flex justify-between">
+              <span className="text-sm font-medium">Total</span>
+              <span className="text-sm font-bold">{formatCurrency(total)}</span>
+            </div>
+            {cacheSavings !== null && cacheSavings > 0 && (
+              <div className="flex justify-between text-emerald-600">
+                <span className="text-sm">Cache Savings</span>
+                <span className="text-sm font-medium">{formatCurrency(cacheSavings)}</span>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center text-muted-foreground text-sm">

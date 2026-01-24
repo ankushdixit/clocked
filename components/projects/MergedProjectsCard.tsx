@@ -24,7 +24,7 @@ export function MergedProjectsCard({ mergedProjects, onUnmerge }: MergedProjects
   }
 
   return (
-    <Card className="h-full flex flex-col overflow-hidden">
+    <Card className="h-full flex flex-col overflow-hidden" data-testid="merged-projects-card">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <GitMerge className="w-4 h-4 flex-shrink-0" />
@@ -35,27 +35,17 @@ export function MergedProjectsCard({ mergedProjects, onUnmerge }: MergedProjects
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 overflow-auto">
-        <div className="space-y-2">
+        <div
+          className="grid gap-3"
+          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))" }}
+        >
           {mergedProjects.map((project) => (
-            <div
-              key={project.path}
-              className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30"
-            >
-              <FolderOpen className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{project.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{project.path}</p>
-                <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
-                  <span>{project.sessionCount} sessions</span>
-                  <span>{formatDuration(project.totalTime)}</span>
-                  <span>{project.messageCount} messages</span>
-                </div>
-              </div>
+            <div key={project.path} className="relative p-3 rounded-lg border bg-muted/30">
               {onUnmerge && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+                  className="absolute top-2 right-2 h-7 px-2 text-xs text-muted-foreground hover:text-destructive cursor-pointer"
                   onClick={() => onUnmerge(project.path)}
                   title="Unmerge this project"
                 >
@@ -63,6 +53,18 @@ export function MergedProjectsCard({ mergedProjects, onUnmerge }: MergedProjects
                   Unmerge
                 </Button>
               )}
+              <div className="flex items-start gap-2">
+                <FolderOpen className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                <div className="flex-1 min-w-0 pr-16">
+                  <p className="font-medium text-sm truncate">{project.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{project.path}</p>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
+                    <span>{project.sessionCount} sessions</span>
+                    <span>{formatDuration(project.totalTime)}</span>
+                    <span>{project.messageCount} msgs</span>
+                  </div>
+                </div>
+              </div>
             </div>
           ))}
         </div>

@@ -99,7 +99,7 @@ describe("CostAnalysisCard", () => {
       expect(card).toHaveClass("flex-col");
     });
 
-    it("applies tabular-nums class for values", () => {
+    it("applies font-medium class for values", () => {
       const fullProps = {
         inputCost: 10.0,
         outputCost: 20.0,
@@ -111,7 +111,7 @@ describe("CostAnalysisCard", () => {
       render(<CostAnalysisCard {...fullProps} />);
 
       const inputValue = screen.getByText("$10.00");
-      expect(inputValue).toHaveClass("tabular-nums");
+      expect(inputValue).toHaveClass("font-medium");
     });
   });
 
